@@ -1,0 +1,194 @@
+<app-layout>
+  <div header-title><i class="fas fa-user-tie"></i> Registro de Conductores</div>
+  <div header-subtitle>Gestión de conductores del sistema</div>
+
+  <section class="admin-content">
+    <div class="form-section">
+      <h2>Registrar Nuevo Conductor</h2>
+      <form (ngSubmit)="onSubmit(driverForm)" #driverForm="ngForm">
+        <div *ngIf="formError" class="form-banner form-banner--error">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>{{ formError }}</span>
+        </div>
+        <div *ngIf="formSuccess" class="form-banner form-banner--success">
+          <i class="fas fa-check-circle"></i>
+          <span>{{ formSuccess }}</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="ci">CI (Carnet de Identidad)</label>
+            <input
+              type="text"
+              id="ci"
+              name="ci"
+              [(ngModel)]="newDriver.ci"
+              (input)="onCIChange()"
+              required
+              pattern="^[0-9]{11}$"
+              maxlength="11"
+              minlength="11"
+              [class.error]="ageError"
+            >
+            <small class="input-hint">11 dígitos consecutivos sin espacios</small>
+            <small class="error-message" *ngIf="ageError">{{ ageError }}</small>
+            <small class="warning-message" *ngIf="ageWarning">{{ ageWarning }}</small>
+          </div>
+          <div class="form-group">
+            <label for="nombreCompleto">Nombre completo (Nombre y apellidos)</label>
+            <input type="text" id="nombreCompleto" name="nombreCompleto" [(ngModel)]="newDriver.nombreCompleto" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="telefono">Teléfono</label>
+            <input
+              type="tel"
+              id="telefono"
+              name="telefono"
+              [(ngModel)]="newDriver.telefono"
+              required
+              pattern="^[0-9]{8,}$"
+              placeholder="Ej: 5355555555"
+            >
+            <small class="input-hint">Solo números, mínimo 8 dígitos</small>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" [(ngModel)]="newDriver.email" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group license-select">
+            <div class="license-card">
+              <div class="license-card__header">
+                <div>
+                  <label>Categorías de licencia</label>
+                  <p>Selecciona todas las categorías que el conductor posee.</p>
+                </div>
+              </div>
+              <div class="checkbox-grid">
+                <label class="checkbox-chip" *ngFor="let category of availableLicenseCategories">
+                  <input
+                    type="checkbox"
+                    [value]="category.code"
+                    #categoryInput
+                    (change)="toggleCategory(category.code, categoryInput.checked)"
+                    [checked]="newDriver.categorias.includes(category.code)"
+                  >
+                  <span class="checkbox-chip__code">{{ category.code }}</span>
+                  <small>{{ category.label }}</small>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="direccion">Dirección</label>
+            <textarea
+              id="direccion"
+              name="direccion"
+              [(ngModel)]="newDriver.direccion"
+              rows="3"
+              required
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <button
+              type="submit"
+              class="btn-submit"
+              [disabled]="driverForm.invalid"
+            >
+              Registrar Conductor
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+    
+    <div class="table-section">
+      <h2>Conductores Registrados</h2>
+      <table class="drivers-table">
+        <thead>
+          <tr>
+            <th>CI</th>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Email</th>
+            <th>Licencias</th>
+            <th>Vehículo asignado</th>
+            <th>Asignar a vehículo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let driver of drivers">
+            <td>{{ driver.ci }}</td>
+            <td>{{ driver.nombreCompleto }}</td>
+            <td>{{ driver.telefono }}</td>
+            <td>{{ driver.email }}</td>
+            <td>
+              <span class="license-chip" *ngFor="let category of driver.categorias">
+                {{ category }}
+              </span>
+            </td>
+            <td>
+              <div class="assign-card__current">
+                <span class="assign-card__current-label">Vehículo activo</span>
+                <div class="assign-card__current-value">
+                  <i class="fas fa-shuttle-van"></i>
+                  <span>{{ getVehicleLabel(driver) }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="assign-card">
+                <div class="assign-card__info">
+                  <span class="assign-card__badge">
+                    <i class="fas fa-exchange-alt"></i>
+                    Reasignación
+                  </span>
+                  <p>Elige a qué vehículo pasará este conductor.</p>
+                </div>
+                <div class="assign-card__control">
+                  <label class="assign-card__label">Nuevo vehículo</label>
+                  <select
+                    class="assign-card__select"
+                    [ngModel]="driver.vehiculoId ?? ''"
+                    (ngModelChange)="assignVehicle(driver.id, $event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    aria-label="Asignar vehículo a conductor"
+                  >
+                    <option value="">Sin asignar</option>
+                    <option *ngFor="let vehicle of vehicles" [value]="vehicle.id">
+                      {{ vehicle.matricula }} · {{ vehicle.marca }} {{ vehicle.modelo }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="table-actions">
+                <button class="btn-edit" (click)="editDriver(driver)">
+                  <span class="material-icons">edit</span>
+                  Editar
+                </button>
+                <button class="btn-delete" (click)="deleteDriver(driver)">
+                  <span class="material-icons">delete</span>
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</app-layout>
+

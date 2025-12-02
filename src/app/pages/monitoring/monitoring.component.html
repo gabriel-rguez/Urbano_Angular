@@ -1,0 +1,176 @@
+<app-layout>
+  <div header-title><i class="fas fa-map-marked-alt"></i> Monitoreo en Tiempo Real</div>
+  <div header-subtitle>Seguimiento de vehículos en tiempo real</div>
+
+  <section class="dashboard-content">
+    <div class="dashboard-card map-card">
+      <div class="card-header">
+        <h3><i class="fas fa-map-marked-alt"></i> Mapa de Monitoreo</h3>
+        <div class="map-actions">
+          <button
+            type="button"
+            class="btn-ghost"
+            (click)="refreshData()"
+            [disabled]="isRefreshing"
+          >
+            <i class="fas fa-sync-alt" [ngClass]="{ 'fa-spin': isRefreshing }"></i>
+            {{ isRefreshing ? 'Actualizando...' : 'Actualizar' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="centerMap()">
+            <i class="fas fa-crosshairs"></i> Centrar
+          </button>
+          <button type="button" class="btn-ghost" (click)="toggleFullscreen()">
+            <i class="fas" [ngClass]="fullscreenActive ? 'fa-compress' : 'fa-expand'"></i>
+            {{ fullscreenActive ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+          </button>
+        </div>
+        <p class="refresh-error" *ngIf="refreshError">{{ refreshError }}</p>
+      </div>
+      <div class="card-content">
+        <div class="live-map" #mapWrapper id="monitoring-map"></div>
+      </div>
+    </div>
+
+    <div class="dashboard-card vehicles-card">
+      <div class="card-header">
+        <div>
+          <h3><i class="fas fa-car"></i> Vehículos Activos</h3>
+          <p class="card-subtitle">Resumen compacto de las unidades en ruta</p>
+        </div>
+        <span class="vehicle-count">{{ vehicles.length }}</span>
+      </div>
+      <div class="card-content vehicles-content">
+        <div class="card-nav">
+          <button
+            class="nav-arrow"
+            type="button"
+            [disabled]="!canVehiclePrev"
+            [class.nav-arrow--disabled]="!canVehiclePrev"
+            aria-label="Ver vehículos anteriores"
+            (click)="onVehicleNav('prev')"
+          >
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button
+            class="nav-arrow"
+            type="button"
+            [disabled]="!canVehicleNext"
+            [class.nav-arrow--disabled]="!canVehicleNext"
+            aria-label="Ver más vehículos"
+            (click)="onVehicleNav('next')"
+          >
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+        <div class="vehicle-list" *ngIf="vehicles.length; else emptyVehicles">
+          <article class="vehicle-pill" *ngFor="let vehicle of visibleVehicles">
+            <header class="vehicle-pill__header">
+              <div class="vehicle-pill__avatar">
+                <i class="fas fa-bus-alt"></i>
+              </div>
+              <div class="vehicle-pill__title">
+                <span class="vehicle-pill__unit">{{ vehicle.unidad }}</span>
+                <span class="vehicle-pill__driver">{{ vehicle.conductor }}</span>
+              </div>
+              <span class="status-chip" [ngClass]="getStatusClass(vehicle.estado)">
+                {{ vehicle.estado }}
+              </span>
+            </header>
+            <div class="vehicle-pill__metrics">
+              <div class="vehicle-pill__metric">
+                <span class="metric-label">Velocidad</span>
+                <div class="metric-value">
+                  <strong>{{ vehicle.velocidad ?? 0 }}</strong>
+                  <span>km/h</span>
+                </div>
+                <div class="speed-bar">
+                  <span class="speed-bar__fill" [style.width]="getSpeedPercent(vehicle)"></span>
+                </div>
+              </div>
+              <div class="vehicle-pill__metric">
+                <span class="metric-label">GPS</span>
+                <span class="gps-chip" [class.gps-chip--off]="vehicle.gpsActivo === false">
+                  <i class="fas fa-satellite-dish"></i>
+                  {{ vehicle.gpsActivo === false ? 'Sin señal' : 'Activo' }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </div>
+        <ng-template #emptyVehicles>
+          <div class="empty-vehicles">
+            <i class="fas fa-route"></i>
+            <p>No hay vehículos activos</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <div class="dashboard-card routes-card">
+      <div class="card-header">
+        <div>
+          <h3><i class="fas fa-route"></i> Rutas Activas</h3>
+          <p class="card-subtitle">Recorridos que están operando ahora mismo</p>
+        </div>
+        <span class="vehicle-count">{{ activeRoutes.length }}</span>
+      </div>
+      <div class="card-content routes-content">
+        <div class="card-nav">
+          <button
+            class="nav-arrow"
+            type="button"
+            [disabled]="!canRoutePrev"
+            [class.nav-arrow--disabled]="!canRoutePrev"
+            aria-label="Ver rutas anteriores"
+            (click)="onRouteNav('prev')"
+          >
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button
+            class="nav-arrow"
+            type="button"
+            [disabled]="!canRouteNext"
+            [class.nav-arrow--disabled]="!canRouteNext"
+            aria-label="Ver más rutas"
+            (click)="onRouteNav('next')"
+          >
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+        <div class="route-list" *ngIf="activeRoutes.length; else emptyRoutes">
+          <article class="route-pill" *ngFor="let route of visibleRoutes">
+            <header class="route-pill__header">
+              <div class="route-pill__badge" [style.background]="route.color || '#facc15'">
+                <i class="fas fa-route"></i>
+              </div>
+              <div class="route-pill__title">
+                <span class="route-pill__name">{{ route.nombre }}</span>
+                <span class="route-pill__path">{{ route.origen }} → {{ route.destino }}</span>
+              </div>
+              <span class="status-chip" [ngClass]="getRouteStatusClass(route.estado)">
+                {{ route.estado }}
+              </span>
+            </header>
+            <div class="route-pill__meta">
+              <div class="route-pill__meta-item">
+                <span class="metric-label">Paradas</span>
+                <strong>{{ getStopCountLabel(route) }}</strong>
+              </div>
+              <div class="route-pill__meta-item route-pill__meta-color">
+                <span class="metric-label">Color</span>
+                <span class="route-pill__color" [style.background]="route.color || '#facc15'"></span>
+              </div>
+            </div>
+          </article>
+        </div>
+        <ng-template #emptyRoutes>
+          <div class="empty-routes">
+            <i class="fas fa-road"></i>
+            <p>No hay rutas activas</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </section>
+</app-layout>
+

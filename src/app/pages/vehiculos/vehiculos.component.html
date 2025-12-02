@@ -1,0 +1,122 @@
+<app-layout>
+  <div header-title><i class="fas fa-car"></i> Registro de Vehículos</div>
+  <div header-subtitle>Gestión de vehículos del sistema</div>
+
+  <section class="admin-content">
+    <div class="form-section">
+      <h2>Registrar Nuevo Vehículo</h2>
+      <form (ngSubmit)="onSubmit()" #vehicleForm="ngForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="matricula">Matrícula</label>
+            <input type="text" id="matricula" name="matricula" [(ngModel)]="newVehicle.matricula" required>
+          </div>
+          <div class="form-group">
+            <label for="marca">Marca</label>
+            <input type="text" id="marca" name="marca" [(ngModel)]="newVehicle.marca" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modelo">Modelo</label>
+            <input type="text" id="modelo" name="modelo" [(ngModel)]="newVehicle.modelo" required>
+          </div>
+          <div class="form-group">
+            <label for="tipo">Tipo de batería</label>
+            <select id="tipo" name="tipo" [(ngModel)]="newVehicle.tipo" required>
+              <option value="">Seleccionar...</option>
+              <option value="Plomo-ácido">Plomo-ácido</option>
+              <option value="Li-ion (NMC)">Li-ion (NMC)</option>
+              <option value="LiFePO4">LiFePO₄ (LFP)</option>
+              <option value="NiMH">NiMH (Hidruro metálico de níquel)</option>
+              <option value="Batería de sodio">Batería de sodio</option>
+              <option value="Otra / Mixta">Otra / Mixta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <button type="submit" class="btn-submit">Registrar Vehículo</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    
+    <div class="table-section">
+      <h2>Vehículos Registrados</h2>
+      <table class="vehicles-table">
+        <thead>
+          <tr>
+            <th>Matrícula</th>
+            <th>Marca</th>
+            <th>Modelo</th>
+            <th>Tipo de batería</th>
+            <th>Estado</th>
+            <th>Conductor asignado</th>
+            <th>Asignar conductor</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let vehicle of vehicles">
+            <td>{{ vehicle.matricula }}</td>
+            <td>{{ vehicle.marca }}</td>
+            <td>{{ vehicle.modelo }}</td>
+            <td>{{ vehicle.tipo }}</td>
+            <td><span class="vehicle-status active">{{ vehicle.estado }}</span></td>
+            <td>
+              <div class="assign-card__current">
+                <span class="assign-card__current-label">Conductor activo</span>
+                <div class="assign-card__current-value">
+                  <i class="fas fa-id-badge"></i>
+                  <span>{{ getDriverLabel(vehicle) }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="assign-card">
+                <div class="assign-card__info">
+                  <span class="assign-card__badge">
+                    <i class="fas fa-random"></i>
+                    Cambio rápido
+                  </span>
+                  <p>Selecciona o reemplaza al conductor de este vehículo.</p>
+                </div>
+                <div class="assign-card__control">
+                  <label class="assign-card__label">Nuevo conductor</label>
+                  <select
+                    class="assign-card__select"
+                    [ngModel]="vehicle.conductorId ?? ''"
+                    (ngModelChange)="assignDriver(vehicle, $event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    aria-label="Asignar conductor al vehículo"
+                  >
+                    <option value="">Sin conductor</option>
+                    <option *ngFor="let driver of drivers" [value]="driver.id">
+                      {{ driver.nombreCompleto }} · CI {{ driver.ci }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="table-actions">
+                <button class="btn-edit" (click)="editVehicle(vehicle)">
+                  <span class="material-icons">edit</span>
+                  Editar
+                </button>
+                <button class="btn-delete" (click)="deleteVehicle(vehicle)">
+                  <span class="material-icons">delete</span>
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</app-layout>
+

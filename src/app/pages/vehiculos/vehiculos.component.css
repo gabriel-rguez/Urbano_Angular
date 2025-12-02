@@ -1,0 +1,133 @@
+/* Vehiculos component specific styles */
+
+.assign-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card-background);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.dark-theme .assign-card {
+  background: var(--card-background);
+  border-color: var(--card-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.assign-card__info {
+  flex: 1 1 180px;
+}
+
+.assign-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.65rem;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: all 0.3s ease;
+}
+
+.dark-theme .assign-card__badge {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.assign-card__info p {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted-text);
+  transition: color 0.3s ease;
+}
+
+.assign-card__control {
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.assign-card__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-color);
+  font-weight: 700;
+  transition: color 0.3s ease;
+}
+
+.assign-card__select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  padding: 0.65rem;
+  background: var(--input-background);
+  font-size: 0.95rem;
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+
+.dark-theme .assign-card__select {
+  background: var(--input-background);
+  border-color: var(--card-border);
+  color: var(--text-color);
+}
+
+.assign-card__select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
+}
+
+.dark-theme .assign-card__select:focus {
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.3);
+}
+
+.assign-card__current {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--card-border);
+  transition: all 0.3s ease;
+}
+
+.dark-theme .assign-card__current {
+  background: var(--surface-muted);
+  border-color: var(--card-border);
+  border-style: solid;
+}
+
+.assign-card__current-label {
+  font-size: 0.72rem;
+  color: var(--muted-text);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.assign-card__current-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-color);
+  transition: color 0.3s ease;
+}
+
+.assign-card__current-value i {
+  color: var(--primary-color);
+  transition: color 0.3s ease;
+}

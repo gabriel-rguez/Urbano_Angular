@@ -1,0 +1,165 @@
+<div class="dashboard-container">
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="sidebar-header">
+      <h2><i class="fas fa-car"></i> Urbano</h2>
+      <p>{{ isAdmin ? 'Panel del administrador' : 'Panel de usuario' }}</p>
+    </div>
+    
+    <ul class="nav-menu">
+      <li class="nav-item" [class.active]="isActive('home') || isActive('dashboard')">
+        <a routerLink="/home" class="nav-link">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('conductores')">
+        <a routerLink="/conductores" class="nav-link">
+          <i class="fas fa-user-tie"></i>
+          <span>Conductores</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('vehiculos')">
+        <a routerLink="/vehiculos" class="nav-link">
+          <i class="fas fa-car"></i>
+          <span>Vehículos</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('rutas')">
+        <a routerLink="/rutas" class="nav-link">
+          <i class="fas fa-route"></i>
+          <span>Rutas</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('monitoring')">
+        <a routerLink="/monitoring" class="nav-link">
+          <i class="fas fa-map-marked-alt"></i>
+          <span>Monitoreo</span>
+        </a>
+      </li>
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('reports')">
+        <a routerLink="/reports" class="nav-link">
+          <i class="fas fa-chart-bar"></i>
+          <span>Reportes</span>
+        </a>
+      </li>
+      <li class="nav-item" [class.active]="isActive('settings')">
+        <a routerLink="/settings" class="nav-link">
+          <i class="fas fa-cog"></i>
+          <span>Configuración</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content" [class.sidebar-closed]="!sidebarOpen">
+    <!-- Header -->
+    <header class="content-header">
+      <div class="header-left">
+        <button
+          class="sidebar-toggle"
+          (click)="toggleSidebar()"
+          [attr.aria-expanded]="sidebarOpen"
+          [attr.aria-label]="sidebarOpen ? 'Cerrar menú lateral' : 'Abrir menú lateral'"
+          [class.is-open]="sidebarOpen"
+        >
+          <span class="toggle-ring">
+            <span class="toggle-icon" [class.open]="sidebarOpen">
+              <i class="fas" [ngClass]="sidebarOpen ? 'fa-chevron-right' : 'fa-bars'"></i>
+            </span>
+          </span>
+          <span class="toggle-label">
+            <span class="toggle-text">Menú</span>
+            <span class="toggle-hint">{{ sidebarOpen ? 'Ocultar' : 'Urbano' }}</span>
+          </span>
+        </button>
+        <div>
+          <h1><ng-content select="[header-title]"></ng-content></h1>
+          <p><ng-content select="[header-subtitle]"></ng-content></p>
+        </div>
+      </div>
+      <div class="header-center">
+        <button 
+          class="theme-toggle-landscape" 
+          (click)="toggleTheme()" 
+          [attr.aria-label]="isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
+          [title]="isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
+          [class.dark-mode]="isDarkMode"
+          type="button">
+          <div class="landscape-background">
+            <!-- Cielo -->
+            <div class="sky"></div>
+            <!-- Carretera -->
+            <div class="road">
+              <div class="road-lines">
+                <div class="road-line"></div>
+                <div class="road-line"></div>
+                <div class="road-line"></div>
+              </div>
+              <!-- Vehículo -->
+              <svg class="vehicle ecotaxi" [class.driving]="!isDarkMode" viewBox="0 0 60 40" width="60" height="40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ecotaxi amarillo con planta ecológica">
+                <!-- Carro tipo minivan/shuttle van - diseño simple -->
+                <rect x="8" y="18" width="44" height="18" rx="2" fill="#FFD228" stroke="none" />
+                <!-- Ventanas laterales -->
+                <rect x="12" y="20" width="10" height="7" rx="1" fill="#FFFFFF" stroke="none" />
+                <rect x="24" y="20" width="10" height="7" rx="1" fill="#FFFFFF" stroke="none" />
+                <rect x="36" y="20" width="10" height="7" rx="1" fill="#FFFFFF" stroke="none" />
+                <!-- Ruedas -->
+                <circle cx="20" cy="36" r="3.5" fill="#111111" stroke="none" />
+                <circle cx="40" cy="36" r="3.5" fill="#111111" stroke="none" />
+                <!-- Planta encima del carro - diseño simple con dos hojas -->
+                <g class="plant">
+                  <!-- Tallo - empieza justo en el techo del auto -->
+                  <line x1="30" y1="18" x2="30" y2="6" stroke="#2ECC71" stroke-width="1.5" stroke-linecap="round" />
+                  <!-- Hoja izquierda - más gorda -->
+                  <path d="M 30 6 Q 24 2, 20 6 Q 24 10, 30 6" fill="#2ECC71" />
+                  <!-- Hoja derecha - más gorda -->
+                  <path d="M 30 6 Q 36 2, 40 6 Q 36 10, 30 6" fill="#2ECC71" />
+                </g>
+              </svg>
+            </div>
+            <!-- Sol -->
+            <div class="sun" [class.hidden]="isDarkMode">
+              <div class="sun-core"></div>
+              <div class="sun-rays"></div>
+            </div>
+            <!-- Luna -->
+            <div class="moon" [class.hidden]="!isDarkMode">
+              <div class="moon-core"></div>
+              <div class="moon-craters">
+                <div class="crater crater-1"></div>
+                <div class="crater crater-2"></div>
+                <div class="crater crater-3"></div>
+              </div>
+            </div>
+            <!-- Estrellas -->
+            <div class="stars" [class.hidden]="!isDarkMode">
+              <div class="star star-1"></div>
+              <div class="star star-2"></div>
+              <div class="star star-3"></div>
+              <div class="star star-4"></div>
+              <div class="star star-5"></div>
+            </div>
+          </div>
+          <span class="sr-only">{{ isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro' }}</span>
+        </button>
+      </div>
+      <div class="header-right">
+        <div class="connection-status">
+          <span class="status-dot online"></span>
+          <span>Conectado</span>
+        </div>
+        <div class="user-info">
+          <i class="fas fa-user-circle"></i>
+          <span>{{ isAdmin ? 'Administrador' : 'Usuario' }}</span>
+        </div>
+        <div class="last-update">
+          Última actualización: <span id="lastUpdate">{{ getCurrentTime() }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <ng-content></ng-content>

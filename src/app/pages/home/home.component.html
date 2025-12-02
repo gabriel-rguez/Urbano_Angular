@@ -1,0 +1,84 @@
+<app-layout>
+  <div header-title>Dashboard</div>
+  <div header-subtitle>Vista general del sistema Ecomovil</div>
+
+  <!-- Stats Cards -->
+  <section class="stats-section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-car"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ stats.vehicles }}</h3>
+          <p>Vehículos Activos</p>
+          <span class="stat-change positive">+2 esta semana</span>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-user-tie"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ stats.drivers }}</h3>
+          <p>Conductores</p>
+          <span class="stat-change positive">+1 esta semana</span>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-route"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ stats.routes }}</h3>
+          <p>Rutas Configuradas</p>
+          <span class="stat-change neutral">Sin cambios</span>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-map-marker-alt"></i>
+        </div>
+        <div class="stat-content">
+          <h3>{{ stats.activeTrips }}</h3>
+          <p>Viajes en Curso</p>
+          <span class="stat-change positive">+3 hoy</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard Content -->
+  <section class="dashboard-content">
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h3><i class="fas fa-map-marked-alt"></i> Mapa en Tiempo Real</h3>
+        <div class="map-actions">
+          <button
+            type="button"
+            class="btn-ghost"
+            (click)="refreshData()"
+            [disabled]="isRefreshing"
+          >
+            <i class="fas fa-sync-alt" [ngClass]="{ 'fa-spin': isRefreshing }"></i>
+            {{ isRefreshing ? 'Actualizando...' : 'Actualizar' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="centerMap()">
+            <i class="fas fa-crosshairs"></i> Centrar
+          </button>
+          <button type="button" class="btn-ghost" (click)="toggleFullscreen()">
+            <i class="fas" [ngClass]="fullscreenActive ? 'fa-compress' : 'fa-expand'"></i>
+            {{ fullscreenActive ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+          </button>
+        </div>
+        <p class="refresh-error" *ngIf="refreshError">{{ refreshError }}</p>
+      </div>
+      <div class="card-content">
+        <div class="live-map" #mapWrapper id="map"></div>
+      </div>
+    </div>
+  </section>
+</app-layout>

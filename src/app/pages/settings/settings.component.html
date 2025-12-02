@@ -1,0 +1,105 @@
+<app-layout>
+  <div header-title><i class="fas fa-cog"></i> Configuración</div>
+  <div header-subtitle>Configuración del sistema</div>
+
+  <section class="admin-content">
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h3><i class="fas fa-cog"></i> Opciones de Configuración</h3>
+      </div>
+      <div class="card-content">
+        <p>Panel de configuración del sistema</p>
+        <div class="settings-buttons">
+          <a routerLink="/login" class="btn-admin">
+            <span class="material-icons">admin_panel_settings</span>
+            Acceder como Administrador
+          </a>
+          <button *ngIf="isLoggedIn" class="btn-change-password" (click)="openChangePasswordModal()">
+            <span class="material-icons">vpn_key</span>
+            Cambiar Contraseña
+          </button>
+          <button *ngIf="isLoggedIn" class="btn-logout" (click)="logout()">
+            <span class="material-icons">logout</span>
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</app-layout>
+
+<!-- Modal para cambiar contraseña -->
+<div class="modal-overlay" *ngIf="showChangePasswordModal" (click)="closeChangePasswordModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fas fa-key"></i> Cambiar Contraseña</h3>
+      <button class="modal-close" (click)="closeChangePasswordModal()" aria-label="Cerrar modal" title="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form (ngSubmit)="onChangePassword()" #passwordForm="ngForm">
+        <div class="form-group">
+          <label for="currentPassword">Contraseña Actual</label>
+          <input 
+            type="password" 
+            id="currentPassword" 
+            name="currentPassword"
+            [(ngModel)]="currentPassword"
+            autocomplete="current-password"
+            placeholder="Ingresa tu contraseña actual"
+            required>
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Nueva Contraseña</label>
+          <input 
+            type="password" 
+            id="newPassword" 
+            name="newPassword"
+            [(ngModel)]="newPassword"
+            autocomplete="new-password"
+            placeholder="Ingresa tu nueva contraseña"
+            required>
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirmar Nueva Contraseña</label>
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            name="confirmPassword"
+            [(ngModel)]="confirmPassword"
+            autocomplete="new-password"
+            placeholder="Confirma tu nueva contraseña"
+            required>
+        </div>
+        
+        <div 
+          *ngIf="message" 
+          class="message" 
+          [class.error]="messageType === 'error'"
+          [class.success]="messageType === 'success'"
+          [class.info]="messageType === 'info'">
+          {{ message }}
+        </div>
+
+        <div class="modal-actions">
+          <button 
+            type="submit" 
+            class="btn-submit"
+            [class.loading]="loading"
+            [disabled]="loading">
+            <i class="fas fa-save"></i> Guardar Cambios
+          </button>
+          <button 
+            type="button" 
+            class="btn-cancel"
+            (click)="closeChangePasswordModal()"
+            [disabled]="loading">
+            Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+

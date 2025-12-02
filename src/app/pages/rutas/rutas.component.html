@@ -1,0 +1,398 @@
+<app-layout>
+  <div header-title><i class="fas fa-route"></i> Planificación de rutas</div>
+  <div header-subtitle>Diseña recorridos, agrega paradas y controla la flota</div>
+
+  <section class="routes-workspace">
+    <div class="map-section">
+      <div class="map-header">
+        <div>
+          <h2>Mapa de diseño</h2>
+          <p>
+            Dibuja rutas sobre el mapa, define paradas numeradas y visualiza cada recorrido antes de guardarlo en la base de datos.
+          </p>
+        </div>
+        <div class="map-actions">
+          <button type="button" class="btn-ghost" (click)="toggleMapSize()">
+            <i class="fas" [ngClass]="isMapExpanded ? 'fa-compress-alt' : 'fa-expand-alt'"></i>
+            {{ isMapExpanded ? 'Reducir alto' : 'Ampliar alto' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="toggleFullscreen()">
+            <i class="fas" [ngClass]="fullscreenActive ? 'fa-compress' : 'fa-expand'"></i>
+            {{ fullscreenActive ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+          </button>
+          <button type="button" class="btn-ghost" (click)="centerMap()">
+            <i class="fas fa-crosshairs"></i> Centrar
+          </button>
+          <button
+            type="button"
+            class="btn-ghost"
+            (click)="refreshData()"
+            [disabled]="isRefreshing"
+          >
+            <i class="fas fa-sync-alt" [ngClass]="{ 'fa-spin': isRefreshing }"></i>
+            {{ isRefreshing ? 'Actualizando...' : 'Actualizar' }}
+          </button>
+          <button type="button" class="btn-ghost warning" (click)="saveChanges()" [disabled]="!hasPendingChanges">
+            <i class="fas fa-save"></i> Guardar cambios
+          </button>
+        </div>
+        <p class="refresh-error" *ngIf="refreshError">{{ refreshError }}</p>
+      </div>
+
+      <div class="map-tools">
+        <!-- Modo: Dibujar Ruta -->
+        <ng-container *ngIf="isDrawingRoute">
+          <button type="button" class="btn-tool active">
+            <i class="fas fa-pen-fancy"></i> Dibujando ruta...
+          </button>
+          <button type="button" class="btn-tool" (click)="finishRouteDrawing()" [disabled]="draftRoutePoints.length < 2">
+            <i class="fas fa-check"></i> Finalizar ruta
+          </button>
+          <button type="button" class="btn-tool" (click)="cancelRouteDrawing()">
+            <i class="fas fa-times"></i> Cancelar trazo
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool" (click)="undo()" [disabled]="!canUndo">
+            <i class="fas fa-undo"></i> Deshacer
+          </button>
+          <button type="button" class="btn-tool" (click)="redo()" [disabled]="!canRedo">
+            <i class="fas fa-redo"></i> Rehacer
+          </button>
+        </ng-container>
+
+        <!-- Modo: Agregar Paradas -->
+        <ng-container *ngIf="isAddingStop && !isDrawingRoute && !extendingStart && !extendingEnd">
+          <button type="button" class="btn-tool active">
+            <i class="fas fa-map-marker-alt"></i> Agregando paradas...
+          </button>
+          <button type="button" class="btn-tool" (click)="finishStopMode()">
+            <i class="fas fa-check"></i> Terminar paradas
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool" (click)="undo()" [disabled]="!canUndo">
+            <i class="fas fa-undo"></i> Deshacer
+          </button>
+          <button type="button" class="btn-tool" (click)="redo()" [disabled]="!canRedo">
+            <i class="fas fa-redo"></i> Rehacer
+          </button>
+        </ng-container>
+
+        <!-- Modo: Extensión de Inicio/Fin -->
+        <ng-container *ngIf="extendingStart || extendingEnd">
+          <button type="button" class="btn-tool active">
+            <i class="fas" [ngClass]="extendingStart ? 'fa-arrow-left' : 'fa-arrow-right'"></i>
+            {{ extendingStart ? 'Extendiendo inicio...' : 'Extendiendo fin...' }}
+          </button>
+          <button type="button" class="btn-tool" (click)="finishExtension()">
+            <i class="fas fa-check"></i> Finalizar extensión
+          </button>
+          <button type="button" class="btn-tool" (click)="cancelExtension()">
+            <i class="fas fa-times"></i> Cancelar extensión
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool" (click)="undo()" [disabled]="!canUndo">
+            <i class="fas fa-undo"></i> Deshacer
+          </button>
+          <button type="button" class="btn-tool" (click)="redo()" [disabled]="!canRedo">
+            <i class="fas fa-redo"></i> Rehacer
+          </button>
+        </ng-container>
+
+        <!-- Modo: Editar Ruta o Parada (sin extensión) -->
+        <ng-container *ngIf="isRouteEditing && !extendingStart && !extendingEnd && !isDrawingRoute && !isAddingStop">
+          <button type="button" class="btn-tool active">
+            <i class="fas fa-edit"></i> {{ selectedStop ? 'Editando parada...' : 'Editando ruta...' }}
+          </button>
+          <ng-container *ngIf="!selectedStop">
+            <button 
+              type="button" 
+              class="btn-tool" 
+              [class.active]="scissorMode" 
+              (click)="toggleScissorMode()" 
+              title="Cortar ruta: Activa el modo cortar para acortar la ruta. Haz clic en un nodo amarillo para cortar la ruta en ese punto, eliminando todos los puntos posteriores."
+            >
+              <i class="fas fa-cut"></i> Cortar
+            </button>
+            <button 
+              type="button" 
+              class="btn-tool" 
+              (click)="startExtendingStart()" 
+              [disabled]="scissorMode"
+              title="Extender inicio: Permite agregar nuevos puntos al inicio de la ruta haciendo clic en el mapa."
+            >
+              <i class="fas fa-arrow-left"></i> Extender inicio
+            </button>
+            <button 
+              type="button" 
+              class="btn-tool" 
+              (click)="startExtendingEnd()" 
+              [disabled]="scissorMode"
+              title="Extender fin: Permite agregar nuevos puntos al final de la ruta haciendo clic en el mapa."
+            >
+              <i class="fas fa-arrow-right"></i> Extender fin
+            </button>
+          </ng-container>
+          <ng-container *ngIf="selectedStop">
+            <button 
+              type="button" 
+              class="btn-tool" 
+              (click)="editStop(selectedStop)"
+              title="Editar la parada seleccionada"
+            >
+              <i class="fas fa-pen"></i> Editar parada
+            </button>
+            <button 
+              type="button" 
+              class="btn-tool danger" 
+              (click)="removeStop(selectedStop)"
+              title="Eliminar la parada seleccionada"
+            >
+              <i class="fas fa-trash"></i> Eliminar parada
+            </button>
+            <button 
+              type="button" 
+              class="btn-tool" 
+              (click)="clearStopSelection()"
+              title="Deseleccionar parada"
+            >
+              <i class="fas fa-times"></i> Deseleccionar
+            </button>
+          </ng-container>
+          <button type="button" class="btn-tool" (click)="toggleRouteEditing()">
+            <i class="fas fa-times"></i> Salir de edición
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool" (click)="undo()" [disabled]="!canUndo">
+            <i class="fas fa-undo"></i> Deshacer
+          </button>
+          <button type="button" class="btn-tool" (click)="redo()" [disabled]="!canRedo">
+            <i class="fas fa-redo"></i> Rehacer
+          </button>
+        </ng-container>
+
+        <!-- Modo: Normal (sin acciones activas) -->
+        <ng-container *ngIf="!isDrawingRoute && !isAddingStop && !isRouteEditing && !extendingStart && !extendingEnd">
+          <button type="button" class="btn-tool" (click)="startRouteDrawing()">
+            <i class="fas fa-pen-fancy"></i> Dibujar ruta
+          </button>
+          <button 
+            type="button" 
+            class="btn-tool" 
+            (click)="startAddingStopForSelectedRoute()" 
+            [disabled]="!selectedRoute"
+          >
+            <i class="fas fa-map-marker-alt"></i> Agregar paradas
+          </button>
+          <button 
+            type="button" 
+            class="btn-tool" 
+            (click)="toggleRouteEditing()" 
+            [disabled]="!selectedRoute"
+          >
+            <i class="fas fa-edit"></i> Editar ruta o paradas
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool" (click)="undo()" [disabled]="!canUndo">
+            <i class="fas fa-undo"></i> Deshacer
+          </button>
+          <button type="button" class="btn-tool" (click)="redo()" [disabled]="!canRedo">
+            <i class="fas fa-redo"></i> Rehacer
+          </button>
+          <span class="divider"></span>
+          <button type="button" class="btn-tool ghost" (click)="clearSelection()" [disabled]="!selectedRoute && !hasDraftRoute">
+            Limpiar mapa
+          </button>
+        </ng-container>
+      </div>
+
+      <!-- Banner de instrucciones visible -->
+      <div class="instruction-banner" *ngIf="pendingStopMessage || (showInitialHint && !selectedRoute && !isDrawingRoute)">
+        <div class="instruction-content">
+          <i class="fas fa-info-circle"></i>
+          <p>{{ pendingStopMessage || 'Selecciona una ruta en la tabla o pulsa "Dibujar ruta" para comenzar.' }}</p>
+          <button 
+            type="button" 
+            class="btn-close-instruction" 
+            (click)="dismissInitialHint()" 
+            [disabled]="extendingStart || extendingEnd"
+            [style.opacity]="(extendingStart || extendingEnd) ? '0.5' : '1'"
+            [style.cursor]="(extendingStart || extendingEnd) ? 'not-allowed' : 'pointer'"
+            aria-label="Cerrar instrucciones"
+            title="{{ (extendingStart || extendingEnd) ? 'No se puede cerrar durante la extensión de ruta' : 'Cerrar instrucciones' }}"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="map-wrapper" #mapWrapper [class.expanded]="isMapExpanded">
+        <div id="routes-map"></div>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <div class="table-header">
+        <div>
+          <h2>Rutas registradas</h2>
+          <p>Los datos se mantendrán localmente hasta conectarse con la base de datos.</p>
+        </div>
+        <button type="button" class="btn-ghost light" (click)="clearSelection()" [disabled]="!selectedRoute">
+          <i class="fas fa-eye-slash"></i> Ocultar selección
+        </button>
+      </div>
+
+      <table class="routes-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th>Paradas</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let route of routes" [class.selected]="route.id === selectedRoute?.id">
+            <td>{{ route.nombre }}</td>
+            <td>{{ route.origen }}</td>
+            <td>{{ route.destino }}</td>
+            <td>{{ route.paradas.length }}</td>
+            <td><span class="route-status active">{{ route.estado }}</span></td>
+            <td class="table-actions">
+              <button
+                type="button"
+                class="btn-action btn-action-view"
+                (click)="viewRoute(route)"
+                [attr.aria-label]="'Visualizar ' + route.nombre"
+                title="Visualizar {{ route.nombre }}"
+              >
+                <span class="material-icons">visibility</span>
+                <span>Ver</span>
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-action-add"
+                (click)="startAddingStopForRoute(route)"
+                [attr.aria-label]="'Agregar paradas a ' + route.nombre"
+                title="Agregar paradas a {{ route.nombre }}"
+              >
+                <span class="material-icons">pin_drop</span>
+                <span>Paradas</span>
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-action-edit"
+                (click)="editRoute(route)"
+                [attr.aria-label]="'Renombrar ' + route.nombre"
+                title="Renombrar {{ route.nombre }}"
+              >
+                <span class="material-icons">edit</span>
+                <span>Editar</span>
+              </button>
+              <button
+                type="button"
+                class="btn-action btn-action-delete"
+                (click)="deleteRoute(route)"
+                [attr.aria-label]="'Eliminar ' + route.nombre"
+                title="Eliminar {{ route.nombre }}"
+              >
+                <span class="material-icons">delete</span>
+                <span>Eliminar</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="selected-route-panel" *ngIf="selectedRoute; else noSelection">
+        <div class="panel-header">
+          <div>
+            <h3>Detalle: {{ selectedRoute!.nombre }}</h3>
+            <p>{{ selectedRoute!.origen }} → {{ selectedRoute!.destino }}</p>
+          </div>
+          <div class="panel-actions">
+            <span class="color-helper">Color de ruta</span>
+            <label class="color-picker">
+              <span>Color</span>
+              <input #routeColor type="color" [value]="selectedRoute!.color" (change)="onRouteColorChange(routeColor.value)">
+            </label>
+            <div class="color-palette">
+              <button
+                type="button"
+                class="palette-swatch"
+                *ngFor="let color of paletteColors"
+                [style.background]="color"
+                [class.selected]="selectedRoute!.color === color"
+                (click)="onRouteColorChange(color)"
+                [title]="'Aplicar ' + color"
+                [attr.aria-label]="'Aplicar ' + color"
+              >
+                <span class="sr-only">Color {{ color }}</span>
+              </button>
+            </div>
+            <button type="button" class="btn-mini" (click)="startAddingStopForSelectedRoute()">
+              <i class="fas fa-plus"></i> Parada
+            </button>
+            <button type="button" class="btn-mini" (click)="centerOnRoute(selectedRoute!)">
+              <i class="fas fa-crosshairs"></i> Centrar
+            </button>
+          </div>
+        </div>
+
+        <ul class="stops-list" *ngIf="selectedRoute!.paradas.length; else emptyStops">
+          <li 
+            *ngFor="let stop of selectedRoute!.paradas; let i = index"
+            [class.selected]="selectedStopId === stop.id"
+            (click)="selectStop(stop, $event)"
+            [style.cursor]="isRouteEditing ? 'pointer' : 'default'"
+          >
+            <div>
+              <span class="stop-number">{{ i + 1 }}</span>
+              <div class="stop-info">
+                <strong>{{ stop.nombre }}</strong>
+                <small *ngIf="stop.direccion" class="stop-address">📍 {{ stop.direccion }}</small>
+                <small *ngIf="!stop.direccion && stop.descripcion">{{ stop.descripcion }}</small>
+                <small class="stop-coords">{{ stop.lat | number:'1.4-4' }}, {{ stop.lng | number:'1.4-4' }}</small>
+              </div>
+            </div>
+            <div class="stop-actions" *ngIf="!isRouteEditing">
+              <button
+                type="button"
+                class="btn-mini"
+                (click)="editStop(stop); $event.stopPropagation()"
+                [attr.aria-label]="'Editar ' + stop.nombre"
+                title="Editar {{ stop.nombre }}"
+              >
+                <i class="fas fa-pen"></i>
+              </button>
+              <button
+                type="button"
+                class="btn-mini danger"
+                (click)="removeStop(stop); $event.stopPropagation()"
+                [attr.aria-label]="'Eliminar ' + stop.nombre"
+                title="Eliminar {{ stop.nombre }}"
+              >
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="stop-actions" *ngIf="isRouteEditing">
+              <span class="stop-selected-indicator" *ngIf="selectedStopId === stop.id">
+                <i class="fas fa-check-circle"></i> Seleccionada
+              </span>
+            </div>
+          </li>
+        </ul>
+        <ng-template #emptyStops>
+          <p class="empty-message">Aún no se han registrado paradas para esta ruta.</p>
+        </ng-template>
+      </div>
+      <ng-template #noSelection>
+        <div class="selected-route-panel idle">
+          <p>Selecciona una ruta para visualizar sus paradas o traza una nueva para comenzar.</p>
+        </div>
+      </ng-template>
+    </div>
+  </section>
+</app-layout>
+
