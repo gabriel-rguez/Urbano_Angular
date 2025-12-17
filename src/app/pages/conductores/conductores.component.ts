@@ -1,8 +1,9 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
 import { LayoutComponent } from '../../shared/layout/layout.component';
 import { FleetService, Driver, FleetVehicle } from '../../core/services/fleet.service';
+import { ConfirmationService } from '../../core/services/confirmation.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -37,13 +38,13 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     categorias: string[];
     direccion: string;
   } = {
-    ci: '',
-    nombreCompleto: '',
-    telefono: '',
-    email: '',
-    categorias: [],
-    direccion: ''
-  };
+      ci: '',
+      nombreCompleto: '',
+      telefono: '',
+      email: '',
+      categorias: [],
+      direccion: ''
+    };
 
   ageError: string | null = null;
   ageWarning: string | null = null;
@@ -53,7 +54,10 @@ export class ConductoresComponent implements OnInit, OnDestroy {
 
   private subscriptions = new Subscription();
 
-  constructor(private fleetService: FleetService) {}
+  constructor(
+    private fleetService: FleetService,
+    private confirmationService: ConfirmationService
+  ) { }
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -68,34 +72,100 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  onSubmit(form: NgForm) {
+  isEditing = false;
+  editingId: number | null = null;
+
+  @ViewChild('driverForm') driverForm!: NgForm;
+
+  async onSubmit() {
     // Limpiar mensajes previos
     this.formError = null;
     this.formSuccess = null;
 
     // Validaciones básicas de formulario (campos obligatorios y patrones)
-    if (form.invalid) {
-      form.control.markAllAsTouched();
-      this.formError = 'Por favor, completa correctamente todos los campos obligatorios antes de registrar el conductor.';
+    // Nota: El botón submit debería estar deshabilitado si el formulario es inválido,
+    // pero mantenemos esta validación por seguridad.
+    if (this.driverForm.invalid) {
+      this.driverForm.control.markAllAsTouched();
+
+      const missingFields: string[] = [];
+      if (this.driverForm.controls['ci']?.errors) missingFields.push('CI');
+      if (this.driverForm.controls['nombreCompleto']?.errors) missingFields.push('Nombre Completo');
+      if (this.driverForm.controls['telefono']?.errors) missingFields.push('Teléfono');
+      if (this.driverForm.controls['email']?.errors) missingFields.push('Email');
+      if (this.driverForm.controls['direccion']?.errors) missingFields.push('Dirección');
+
+      if (missingFields.length > 0) {
+        this.formError = `Faltan campos obligatorios o inválidos: ${missingFields.join(', ')}.`;
+      } else {
+        // Fallback genérico por si hay otro error no mapeado
+        this.formError = 'Por favor, revisa los campos en rojo.';
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     if (!this.newDriver.categorias.length) {
       this.formError = 'Selecciona al menos una categoría de licencia para el conductor.';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     // Debe tener al menos D-1 para poder conducir el ecomóvil
     if (!this.newDriver.categorias.includes('D-1')) {
       this.formError = 'Para manejar el ecomóvil, el conductor debe tener al menos la categoría D-1 en su licencia.';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     // Validar edad desde el CI
     if (!this.validateAgeFromCI()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
+    if (this.isEditing && this.editingId) {
+      await this.confirmUpdate();
+    } else {
+      this.createDriver();
+    }
+  }
+
+  private async confirmUpdate() {
+    console.log('Initiating confirmUpdate', { editingId: this.editingId, newDriver: this.newDriver });
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Confirmar Edición',
+      message: '¿Estás seguro de guardar los cambios para este conductor?',
+      confirmText: 'Guardar Cambios',
+      type: 'warning'
+    });
+    console.log('Confirmation result:', confirmed);
+
+    if (confirmed && this.editingId) {
+      console.log('Updating driver in service...');
+      this.fleetService.updateDriver({
+        id: this.editingId,
+        ci: this.newDriver.ci,
+        nombreCompleto: this.newDriver.nombreCompleto,
+        telefono: this.newDriver.telefono,
+        email: this.newDriver.email,
+        categorias: [...this.newDriver.categorias],
+        direccion: this.newDriver.direccion,
+        vehiculoId: this.getDriverVehicleId(this.editingId)
+      });
+      console.log('Driver updated.');
+      this.formSuccess = 'Conductor actualizado correctamente.';
+      this.cancelEdit();
+    }
+  }
+
+  private getDriverVehicleId(id: number): number | null {
+    const driver = this.drivers.find(d => d.id === id);
+    return driver ? driver.vehiculoId : null;
+  }
+
+  private createDriver() {
     this.fleetService.addDriver({
       ci: this.newDriver.ci,
       nombreCompleto: this.newDriver.nombreCompleto,
@@ -106,6 +176,14 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     });
     this.formSuccess = 'Conductor registrado correctamente (solo vista).';
     this.resetForm();
+  }
+
+  cancelEdit() {
+    this.isEditing = false;
+    this.editingId = null;
+    this.resetForm();
+    this.formError = null;
+    this.formSuccess = null;
   }
 
   validateAgeFromCI(): boolean {
@@ -136,7 +214,7 @@ export class ConductoresComponent implements OnInit, OnDestroy {
 
     // Crear fecha de nacimiento
     const birthDate = new Date(fullYear, month - 1, day);
-    
+
     // Validar que la fecha sea válida
     if (birthDate.getFullYear() !== fullYear || birthDate.getMonth() !== month - 1 || birthDate.getDate() !== day) {
       this.ageError = 'La fecha de nacimiento extraída del CI no es válida.';
@@ -148,7 +226,7 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
@@ -200,7 +278,7 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     }
   }
 
-  assignVehicle(driverId: number, vehicleValue: string) {
+  async assignVehicle(driverId: number, vehicleValue: string) {
     const vehicleId = vehicleValue ? Number(vehicleValue) : null;
     const driver = this.drivers.find(d => d.id === driverId);
 
@@ -213,18 +291,23 @@ export class ConductoresComponent implements OnInit, OnDestroy {
       : null;
     const nextVehicle = vehicleId ? this.vehicles.find(v => v.id === vehicleId) ?? null : null;
 
-    if (!this.confirmVehicleAssignment(driver, currentVehicle, nextVehicle)) {
+    if (!(await this.confirmVehicleAssignment(driver, currentVehicle, nextVehicle))) {
+      // Si cancela, forzar actualización de la vista para revertir el select (hack simple)
+      // En un escenario real, lo ideal es no usar ngModel bidireccional directo o resetearlo explícitamente.
+      // Pero como el array 'drivers' no ha cambiado, Angular debería redibujar.
+      // Forzamos un 'refresh' simulado:
+      this.drivers = [...this.drivers];
       return;
     }
 
     this.fleetService.assignVehicleToDriver(driverId, vehicleId);
   }
 
-  private confirmVehicleAssignment(
+  private async confirmVehicleAssignment(
     driver: Driver,
     currentVehicle: FleetVehicle | null,
     nextVehicle: FleetVehicle | null
-  ): boolean {
+  ): Promise<boolean> {
     const currentLabel = currentVehicle
       ? `${currentVehicle.marca} ${currentVehicle.modelo} (${currentVehicle.matricula})`
       : 'Sin vehículo asignado';
@@ -240,7 +323,12 @@ export class ConductoresComponent implements OnInit, OnDestroy {
       'Esta acción registrará la hora del cambio.'
     ].join('\n');
 
-    return confirm(message);
+    return await this.confirmationService.confirm({
+      message,
+      title: 'Confirmar Asignación',
+      confirmText: 'Asignar',
+      type: 'warning'
+    });
   }
 
   getVehicleLabel(driver: Driver): string {
@@ -248,13 +336,78 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     return vehicle ? `${vehicle.matricula} (${vehicle.marca} ${vehicle.modelo})` : 'Sin asignar';
   }
 
-  editDriver(driver: Driver) {
-    console.log('Editar conductor:', driver);
+  viewDriver(driver: Driver) {
+    const vehicleLabel = this.getVehicleLabel(driver);
+    const htmlContent = `
+      <div class="detail-row">
+        <strong>CI:</strong> <span class="detail-desc">${driver.ci}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Nombre Completo:</strong> <span class="detail-desc">${driver.nombreCompleto}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Teléfono:</strong> <span class="detail-desc">${driver.telefono}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Email:</strong> <span class="detail-desc">${driver.email}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Categorías:</strong> <span class="detail-desc">${driver.categorias.join(', ')}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Dirección:</strong> <span class="detail-desc">${driver.direccion || 'No registrada'}</span>
+      </div>
+      <div class="detail-row">
+        <strong>Vehículo Asignado:</strong> <span class="detail-desc">${vehicleLabel}</span>
+      </div>
+    `;
+
+    this.confirmationService.confirm({
+      title: 'Detalles del Conductor',
+      htmlContent: htmlContent,
+      confirmText: 'Cerrar',
+      type: 'info',
+      cancelText: ''
+    });
   }
 
-  deleteDriver(driver: Driver) {
-    if (confirm('¿Estás seguro de eliminar este conductor?')) {
-      console.log('Eliminar conductor:', driver);
+  async editDriver(driver: Driver) {
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Editar Conductor',
+      message: `¿Deseas editar la información del conductor ${driver.nombreCompleto}?`,
+      confirmText: 'Editar',
+      type: 'primary'
+    });
+
+    if (confirmed) {
+      this.isEditing = true;
+      this.editingId = driver.id;
+      this.newDriver = {
+        ci: driver.ci,
+        nombreCompleto: driver.nombreCompleto,
+        telefono: driver.telefono,
+        email: driver.email,
+        categorias: [...driver.categorias],
+        direccion: driver.direccion || ''
+      };
+      // Scroll al formulario
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.formSuccess = null;
+      this.formError = null;
+    }
+  }
+
+  async deleteDriver(driver: Driver) {
+    const confirmed = await this.confirmationService.confirm({
+      message: `¿Estás seguro de eliminar al conductor ${driver.nombreCompleto}?`,
+      title: 'Eliminar Conductor',
+      confirmText: 'Eliminar',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      this.fleetService.deleteDriver(driver.id);
+      this.formSuccess = 'Conductor eliminado correctamente.';
     }
   }
 }

@@ -1,0 +1,81 @@
+<app-layout>
+    <div header-title>Soporte a Conductores</div>
+    <div header-subtitle>Canal de comunicación en tiempo real</div>
+
+    <div class="admin-support-container">
+        <!-- Sidebar: List of Conversations -->
+        <div class="conversations-sidebar">
+            <div class="sidebar-header">
+                <h3>Mensajes Recientes</h3>
+            </div>
+
+            <div class="conversations-list">
+                <div *ngFor="let conv of conversations" class="conversation-item"
+                    [class.active]="selectedConversation?.id === conv.id" (click)="selectConversation(conv)">
+
+                    <div class="conv-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+
+                    <div class="conv-info">
+                        <div class="conv-top">
+                            <span class="driver-name">{{ conv.driverName }}</span>
+                            <span class="time-ago">{{ conv.lastMessageTime | date:'shortTime' }}</span>
+                        </div>
+                        <div class="conv-bottom">
+                            <span class="last-message">{{ conv.lastMessage }}</span>
+                            <span *ngIf="conv.unreadCount > 0" class="unread-badge">{{ conv.unreadCount }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="conversations.length === 0" class="empty-list">
+                    Sin conversaciones activas
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Area: Chat Viewport -->
+        <div class="chat-area">
+            <div *ngIf="!selectedConversation" class="no-selection-state">
+                <i class="fas fa-comments"></i>
+                <h3>Selecciona un conductor</h3>
+                <p>Elige una conversación de la izquierda para comenzar a chatear.</p>
+            </div>
+
+            <div *ngIf="selectedConversation" class="chat-viewport">
+                <div class="chat-header">
+                    <div class="chat-header-info">
+                        <h3>{{ selectedConversation.driverName }}</h3>
+                        <span class="status-indicator">En línea</span>
+                    </div>
+                    <button class="btn-report" (click)="createReport()" title="Generar Reporte de Incidencia">
+                        <i class="fas fa-file-alt"></i> Reportar
+                    </button>
+                </div>
+
+                <div class="messages-area" #scrollContainer>
+                    <div *ngIf="activeMessages.length === 0" class="empty-state">
+                        <p>Inicio de la conversación</p>
+                    </div>
+
+                    <div *ngFor="let msg of activeMessages" class="message"
+                        [ngClass]="{'sent': msg.role === 'admin', 'received': msg.role === 'driver'}">
+                        <div class="message-content">
+                            <p>{{ msg.text }}</p>
+                            <span class="time">{{ msg.timestamp | date:'shortTime' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" [(ngModel)]="newMessage" (keyup.enter)="sendMessage()"
+                        placeholder="Escribe una respuesta...">
+                    <button class="btn-submit" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</app-layout>

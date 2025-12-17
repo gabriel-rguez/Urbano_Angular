@@ -1,8 +1,10 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/layout/layout.component';
+import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
+import { RouterModule } from '@angular/router';
 import { PlannedRoute, Vehicle, RouteStop } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -10,7 +12,7 @@ import { ThemeService } from '../../core/services/theme.service';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, LayoutComponent],
+  imports: [CommonModule, LayoutComponent, RouterModule],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
@@ -46,7 +48,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private routesService: RoutesService,
     private themeService: ThemeService
-  ) {}
+  ) { }
 
   ngOnInit() {
     // Configurar iconos de Leaflet
@@ -61,7 +63,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
       this.stats.vehicles = vehicles.length;
       this.renderNetwork();
     });
-    
+
     // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
@@ -125,7 +127,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
       // Asegurar actualización final de iconos
       this.updateStopIcons();
     });
-    
+
     // Ajustar tamaño cuando cambia el contenedor (mantener centro y zoom)
     this.map.on('resize', () => {
       const currentCenter = this.map!.getCenter();
@@ -164,7 +166,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Determinar qué tiles usar según el tema
     const isDarkMode = this.themeService.isDarkMode();
-    
+
     if (isDarkMode) {
       // Usar OpenStreetMap con estilo oscuro que preserva colores naturales
       this.tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -172,7 +174,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         maxZoom: 19,
         className: 'dark-map-tiles'
       });
-      
+
       // Agregar clase al contenedor del mapa para aplicar filtros
       const mapContainer = this.map.getContainer();
       mapContainer.classList.add('dark-map-container');
@@ -182,7 +184,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
       });
-      
+
       // Remover clase del contenedor del mapa
       const mapContainer = this.map.getContainer();
       mapContainer.classList.remove('dark-map-container');
@@ -236,7 +238,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
       const routeColor = route.color || '#efb810';
-      
+
       // Crear efecto de relieve: línea de sombra más gruesa y oscura debajo
       const shadowLayer = L.polyline(route.polyline, {
         color: '#000000',
@@ -245,7 +247,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         className: 'route-shadow'
       }).addTo(this.map!);
       this.routeLayers.push(shadowLayer);
-      
+
       // Línea principal con borde blanco para contraste
       const borderLayer = L.polyline(route.polyline, {
         color: '#ffffff',
@@ -254,7 +256,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         className: 'route-border'
       }).addTo(this.map!);
       this.routeLayers.push(borderLayer);
-      
+
       // Línea principal de la ruta
       const layer = L.polyline(route.polyline, {
         color: routeColor,
@@ -291,7 +293,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         const iconSize = 28; // Tamaño fijo para mejor rendimiento
         const centerPoint = iconSize / 2; // Punto central exacto
         const routeColor = route.color || '#efb810';
-        
+
         // Crear icono circular con el color de la ruta y el número de parada
         const icon = L.divIcon({
           className: 'stop-marker-container',
@@ -307,19 +309,19 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
           iconAnchor: [centerPoint, centerPoint], // Siempre centrado exactamente
           popupAnchor: [0, -centerPoint] // Ajuste del popup
         });
-        
+
         const marker = L.marker([stop.lat, stop.lng], {
           icon: icon,
           draggable: false
         }).addTo(this.map!);
-        
+
         let popupText = `<strong>${stop.nombre}</strong>`;
         if (stop.direccion) {
           popupText += `<br><small>📍 ${stop.direccion}</small>`;
         } else if (stop.descripcion) {
           popupText += `<br>${stop.descripcion}`;
         }
-        
+
         marker.bindPopup(popupText);
         this.stopMarkers.push(marker);
       });
@@ -331,7 +333,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
       // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
       const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
       const centerPoint = iconSize / 2;
-      
+
       const circleColor = isActive ? '#10b981' : '#6b7280';
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
@@ -347,7 +349,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         iconAnchor: [centerPoint, centerPoint],
         popupAnchor: [0, -centerPoint]
       });
-      
+
       const marker = L.marker([vehicle.lat, vehicle.lng], { icon }).addTo(this.map!);
       marker.bindPopup(`
         <div class="vehicle-popup">
@@ -385,7 +387,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     const iconSize = this.getIconSizeForZoom();
     const centerPoint = iconSize / 2; // Punto central exacto
-    
+
     this.stopMarkers.forEach(marker => {
       const newIcon = L.divIcon({
         className: 'stop-marker-container',
@@ -421,7 +423,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         alert('El navegador no permitió activar pantalla completa.');
       });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
   }
 

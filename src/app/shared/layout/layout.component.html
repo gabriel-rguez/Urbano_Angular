@@ -5,7 +5,7 @@
       <h2><i class="fas fa-car"></i> Urbano</h2>
       <p>{{ isAdmin ? 'Panel del administrador' : 'Panel de usuario' }}</p>
     </div>
-    
+
     <ul class="nav-menu">
       <li class="nav-item" [class.active]="isActive('home') || isActive('dashboard')">
         <a routerLink="/home" class="nav-link">
@@ -13,36 +13,64 @@
           <span>Dashboard</span>
         </a>
       </li>
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('conductores')">
-        <a routerLink="/conductores" class="nav-link">
-          <i class="fas fa-user-tie"></i>
-          <span>Conductores</span>
+
+      <!-- Enlace dinámico de Chat/Soporte -->
+      <!-- Enlace para Conductores: Reportar Avería -->
+      <li class="nav-item" *ngIf="isDriver" [class.active]="isActive('driver-issues')">
+        <a routerLink="/driver-issues" class="nav-link">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Reportar Avería</span>
         </a>
       </li>
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('vehiculos')">
-        <a routerLink="/vehiculos" class="nav-link">
-          <i class="fas fa-car"></i>
-          <span>Vehículos</span>
+
+      <!-- Enlace para Admin: Soporte Conductores -->
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('admin-support')">
+        <a routerLink="/admin-support" class="nav-link">
+          <i class="fas fa-headset"></i>
+          <span>Soporte Conductores</span>
         </a>
       </li>
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('rutas')">
-        <a routerLink="/rutas" class="nav-link">
-          <i class="fas fa-route"></i>
-          <span>Rutas</span>
-        </a>
-      </li>
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('monitoring')">
-        <a routerLink="/monitoring" class="nav-link">
-          <i class="fas fa-map-marked-alt"></i>
-          <span>Monitoreo</span>
-        </a>
-      </li>
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('reports')">
-        <a routerLink="/reports" class="nav-link">
-          <i class="fas fa-chart-bar"></i>
-          <span>Reportes</span>
-        </a>
-      </li>
+
+      <!-- Enlaces solo para Administradores -->
+      <ng-container *ngIf="isAdmin">
+        <li class="nav-item" [class.active]="isActive('conductores')">
+          <a routerLink="/conductores" class="nav-link">
+            <i class="fas fa-user-tie"></i>
+            <span>Conductores</span>
+          </a>
+        </li>
+        <li class="nav-item" [class.active]="isActive('vehiculos')">
+          <a routerLink="/vehiculos" class="nav-link">
+            <i class="fas fa-car"></i>
+            <span>Vehículos</span>
+          </a>
+        </li>
+        <li class="nav-item" [class.active]="isActive('rutas')">
+          <a routerLink="/rutas" class="nav-link">
+            <i class="fas fa-route"></i>
+            <span>Rutas</span>
+          </a>
+        </li>
+        <li class="nav-item" [class.active]="isActive('monitoring')">
+          <a routerLink="/monitoring" class="nav-link">
+            <i class="fas fa-map-marked-alt"></i>
+            <span>Monitoreo</span>
+          </a>
+        </li>
+        <li class="nav-item" [class.active]="isActive('reports')">
+          <a routerLink="/reports" class="nav-link">
+            <i class="fas fa-chart-bar"></i>
+            <span>Reportes</span>
+          </a>
+        </li>
+        <li class="nav-item" [class.active]="isActive('admin-sessions')">
+          <a routerLink="/admin-sessions" class="nav-link">
+            <i class="fas fa-user-shield"></i>
+            <span>Sesiones</span>
+          </a>
+        </li>
+      </ng-container>
+
       <li class="nav-item" [class.active]="isActive('settings')">
         <a routerLink="/settings" class="nav-link">
           <i class="fas fa-cog"></i>
@@ -57,13 +85,8 @@
     <!-- Header -->
     <header class="content-header">
       <div class="header-left">
-        <button
-          class="sidebar-toggle"
-          (click)="toggleSidebar()"
-          [attr.aria-expanded]="sidebarOpen"
-          [attr.aria-label]="sidebarOpen ? 'Cerrar menú lateral' : 'Abrir menú lateral'"
-          [class.is-open]="sidebarOpen"
-        >
+        <button class="sidebar-toggle" (click)="toggleSidebar()" [attr.aria-expanded]="sidebarOpen"
+          [attr.aria-label]="sidebarOpen ? 'Cerrar menú lateral' : 'Abrir menú lateral'" [class.is-open]="sidebarOpen">
           <span class="toggle-ring">
             <span class="toggle-icon" [class.open]="sidebarOpen">
               <i class="fas" [ngClass]="sidebarOpen ? 'fa-chevron-right' : 'fa-bars'"></i>
@@ -80,12 +103,9 @@
         </div>
       </div>
       <div class="header-center">
-        <button 
-          class="theme-toggle-landscape" 
-          (click)="toggleTheme()" 
+        <button class="theme-toggle-landscape" (click)="toggleTheme()"
           [attr.aria-label]="isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
-          [title]="isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
-          [class.dark-mode]="isDarkMode"
+          [title]="isDarkMode ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'" [class.dark-mode]="isDarkMode"
           type="button">
           <div class="landscape-background">
             <!-- Cielo -->
@@ -98,7 +118,8 @@
                 <div class="road-line"></div>
               </div>
               <!-- Vehículo -->
-              <svg class="vehicle ecotaxi" [class.driving]="!isDarkMode" viewBox="0 0 60 40" width="60" height="40" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ecotaxi amarillo con planta ecológica">
+              <svg class="vehicle ecotaxi" [class.driving]="!isDarkMode" viewBox="0 0 60 40" width="60" height="40"
+                xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ecotaxi amarillo con planta ecológica">
                 <!-- Carro tipo minivan/shuttle van - diseño simple -->
                 <rect x="8" y="18" width="44" height="18" rx="2" fill="#FFD228" stroke="none" />
                 <!-- Ventanas laterales -->
@@ -163,3 +184,7 @@
     <!-- Page Content -->
     <div class="page-content">
       <ng-content></ng-content>
+    </div>
+  </main>
+</div>
+<app-confirm-dialog></app-confirm-dialog>

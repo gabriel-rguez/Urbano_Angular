@@ -6,6 +6,7 @@ import * as L from 'leaflet';
 import { PlannedRoute, RouteStop, Vehicle } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { ConfirmationService } from '../../core/services/confirmation.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -109,8 +110,9 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     private routesService: RoutesService,
-    private themeService: ThemeService
-  ) {}
+    private themeService: ThemeService,
+    private confirmationService: ConfirmationService
+  ) { }
 
   get selectedRoute(): PlannedRoute | null {
     return this.routes.find(route => route.id === this.selectedRouteId) ?? null;
@@ -151,7 +153,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     this.saveToHistory();
     this.syncSharedState();
-    
+
     // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
@@ -174,11 +176,22 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  editRoute(route: PlannedRoute) {
-    const nuevoNombre = prompt('Renombrar ruta', route.nombre);
-    if (!nuevoNombre) {
+  async editRoute(route: PlannedRoute) {
+    const result = await this.confirmationService.prompt({
+      title: 'Renombrar Ruta',
+      message: 'Modifica el nombre de la ruta.',
+      confirmText: 'Guardar',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre de la ruta', value: route.nombre, required: true }
+      ]
+    });
+
+    if (!result) {
       return;
     }
+
+    const nuevoNombre = result['nombre'].trim();
     this.routes = this.routes.map(r => r.id === route.id ? { ...r, nombre: nuevoNombre } : r);
     if (this.selectedRouteId === route.id) {
       this.renderSelectedRoute();
@@ -188,8 +201,15 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  deleteRoute(route: PlannedRoute) {
-    if (!confirm('¿Eliminar esta ruta?')) {
+  async deleteRoute(route: PlannedRoute) {
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Eliminar Ruta',
+      message: '¿Estás seguro de que deseas eliminar esta ruta? Esta acción es irreversible.',
+      confirmText: 'Eliminar',
+      type: 'danger'
+    });
+
+    if (!confirmed) {
       return;
     }
     this.routes = this.routes.filter(r => r.id !== route.id);
@@ -214,7 +234,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
   async finishRouteDrawing() {
     if (this.draftRoutePoints.length < 2) {
-      alert('La ruta necesita al menos un inicio y un fin.');
+      await this.confirmationService.confirm({
+        title: 'Ruta incompleta',
+        message: 'La ruta necesita al menos un punto de inicio y un punto final.',
+        confirmText: 'Entendido',
+        type: 'info'
+      });
       return;
     }
 
@@ -253,9 +278,14 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.pendingStopMessage = '';
   }
 
-  startAddingStopForSelectedRoute() {
+  async startAddingStopForSelectedRoute() {
     if (!this.selectedRoute) {
-      alert('Selecciona primero la ruta que deseas editar.');
+      await this.confirmationService.confirm({
+        title: 'Acción requerida',
+        message: 'Por favor, selecciona primero la ruta a la que deseas agregar paradas.',
+        confirmText: 'OK',
+        type: 'info'
+      });
       return;
     }
     this.startAddingStopForRoute(this.selectedRoute);
@@ -331,16 +361,30 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  editStop(stop: RouteStop) {
+  async editStop(stop: RouteStop) {
     const route = this.selectedRoute;
     if (!route) {
       return;
     }
-    const nuevoNombre = prompt('Editar nombre de la parada', stop.nombre)?.trim();
-    if (!nuevoNombre) {
+
+    const result = await this.confirmationService.prompt({
+      title: 'Editar Parada',
+      message: 'Modifica los detalles de la parada.',
+      confirmText: 'Actualizar',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre de la parada', value: stop.nombre, required: true },
+        { name: 'descripcion', label: 'Descripción (opcional)', value: stop.descripcion || '', type: 'textarea' }
+      ]
+    });
+
+    if (!result) {
       return;
     }
-    const nuevaDescripcion = prompt('Descripción de la parada', stop.descripcion ?? '')?.trim() ?? stop.descripcion ?? '';
+
+    const nuevoNombre = result['nombre'].trim();
+    const nuevaDescripcion = result['descripcion']?.trim() || '';
+
     route.paradas = route.paradas.map(p => p.id === stop.id ? { ...p, nombre: nuevoNombre, descripcion: nuevaDescripcion } : p);
     this.routes = this.routes.map(r => r.id === route.id ? { ...route } : r);
     this.renderSelectedRoute();
@@ -349,12 +393,20 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  removeStop(stop: RouteStop, routeOverride?: PlannedRoute) {
+  async removeStop(stop: RouteStop, routeOverride?: PlannedRoute) {
     const target = routeOverride ?? this.selectedRoute;
     if (!target) {
       return;
     }
-    if (!confirm(`¿Está seguro de que desea eliminar la parada "${stop.nombre}"?`)) {
+
+    const confirmed = await this.confirmationService.confirm({
+      title: 'Eliminar Parada',
+      message: `¿Está seguro de que desea eliminar la parada "${stop.nombre}"?`,
+      confirmText: 'Eliminar',
+      type: 'danger'
+    });
+
+    if (!confirmed) {
       return;
     }
     target.paradas = target.paradas.filter(p => p.id !== stop.id);
@@ -405,7 +457,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         alert('El navegador no permitió activar pantalla completa.');
       });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
     // Actualizar el estado del scroll después de un pequeño delay
     setTimeout(() => {
@@ -455,12 +507,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Restaurar estado del mapa si existe, sino usar valores por defecto
     const savedCenter = this.getSavedMapCenter();
     const savedZoom = this.getSavedMapZoom();
-    
+
     this.map = L.map('routes-map', {
       scrollWheelZoom: false, // Deshabilitar zoom con scroll del mouse
       zoomControl: true // Mantener los botones de zoom
     }).setView(savedCenter || this.defaultCenter, savedZoom || this.defaultZoom);
-    
+
     // Inicializar tiles según el tema actual
     this.updateMapTheme();
 
@@ -475,7 +527,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       // Asegurar actualización final de iconos
       this.updateStopIcons();
     });
-    
+
     // Ajustar tamaño cuando cambia el contenedor
     this.map.on('resize', () => {
       // Mantener el mismo centro y zoom al redimensionar
@@ -505,7 +557,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Determinar qué tiles usar según el tema
     const isDarkMode = this.themeService.isDarkMode();
-    
+
     if (isDarkMode) {
       // Usar OpenStreetMap con estilo oscuro que preserva colores naturales
       // Aplicar filtro CSS para oscurecer el fondo pero mantener colores de carreteras y ríos
@@ -514,7 +566,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         maxZoom: 19,
         className: 'dark-map-tiles' // Clase para aplicar filtros CSS
       });
-      
+
       // Agregar clase al contenedor del mapa para aplicar filtros
       const mapContainer = this.map.getContainer();
       mapContainer.classList.add('dark-map-container');
@@ -524,7 +576,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
       });
-      
+
       // Remover clase del contenedor del mapa
       const mapContainer = this.map.getContainer();
       mapContainer.classList.remove('dark-map-container');
@@ -565,7 +617,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.selectedStopId !== null) {
       return;
     }
-    
+
     if (this.isAddingStop) {
       this.createStopAt(event.latlng); // Ya es async, no necesita await aquí
     } else if (this.isDrawingRoute) {
@@ -613,13 +665,23 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
   private async createStopAt(latlng: L.LatLng) {
     if (!this.stopTargetRouteId) {
-      alert('Selecciona primero la ruta a la que deseas agregar paradas.');
+      await this.confirmationService.confirm({
+        title: 'Acción Requerida',
+        message: 'Selecciona primero la ruta a la que deseas agregar paradas.',
+        type: 'info',
+        confirmText: 'Entendido'
+      });
       this.isAddingStop = false;
       return;
     }
     const targetRoute = this.routes.find(route => route.id === this.stopTargetRouteId);
     if (!targetRoute) {
-      alert('Ruta no encontrada para agregar la parada.');
+      await this.confirmationService.confirm({
+        title: 'Error',
+        message: 'Ruta no encontrada para agregar la parada.',
+        type: 'danger',
+        confirmText: 'OK'
+      });
       this.isAddingStop = false;
       return;
     }
@@ -637,7 +699,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     const MAX_DISTANCE_DEGREES = MAX_DISTANCE_METERS / 111000; // Aproximadamente 1 grado = 111km
 
     if (distanceToRoute > MAX_DISTANCE_DEGREES) {
-      alert(`El punto seleccionado está demasiado lejos de la ruta (más de ${MAX_DISTANCE_METERS}m). Por favor, haz clic más cerca de la línea amarilla de la ruta.`);
+      await this.confirmationService.confirm({
+        title: 'Punto lejano',
+        message: `El punto seleccionado está demasiado lejos de la ruta (más de ${MAX_DISTANCE_METERS}m). Por favor, haz clic más cerca de la línea amarilla de la ruta.`,
+        type: 'warning',
+        confirmText: 'Entendido'
+      });
       this.isAddingStop = false;
       return;
     }
@@ -646,19 +713,30 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Obtener la dirección de la calle mediante geocodificación inversa con las coordenadas exactas
     this.pendingStopMessage = 'Obteniendo dirección de la calle...';
     const direccion = await this.reverseGeocode(latlng);
-    
-    const nombre = prompt('Nombre de la parada:', `Parada ${targetRoute.paradas.length + 1}`)?.trim();
-    if (!nombre) {
+
+    const result = await this.confirmationService.prompt({
+      title: 'Nueva Parada',
+      message: 'Detalles de la nueva parada.',
+      confirmText: 'Crear',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre', value: `Parada ${targetRoute.paradas.length + 1}`, required: true },
+        { name: 'descripcion', label: 'Descripción', value: direccion || '', type: 'textarea' }
+      ]
+    });
+
+    if (!result) {
       this.isAddingStop = false;
       this.pendingStopMessage = '';
       return;
     }
 
-    const descripcion = prompt('Descripción de la parada (opcional):', direccion || '')?.trim() || direccion || '';
+    const nombre = result['nombre'].trim();
+    const descripcion = result['descripcion']?.trim() || result['nombre']; // Fallback
     // Usar las coordenadas EXACTAS del clic
-    const stop = { 
-      id: Date.now(), 
-      nombre, 
+    const stop = {
+      id: Date.now(),
+      nombre,
       lat: latlng.lat, // Coordenadas exactas del clic
       lng: latlng.lng, // Coordenadas exactas del clic
       descripcion,
@@ -697,7 +775,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Pequeño delay para evitar rate limiting de Nominatim
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Usar Nominatim con zoom más alto para mayor precisión en la calle exacta
       // zoom=18 es para edificios, pero necesitamos la calle, así que usamos zoom=16-17
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=17&addressdetails=1`;
@@ -707,18 +785,18 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
           'Accept-Language': 'es'
         }
       });
-      
+
       if (!response.ok) {
         console.warn('Error en respuesta de geocodificación:', response.status);
         return '';
       }
-      
+
       const data = await response.json();
-      
+
       if (data && data.address) {
         const addr = data.address;
         let direccion = '';
-        
+
         // Prioridad: road (calle principal) > street > pedestrian > path
         // En Cuba, generalmente se usa 'road' para las calles
         if (addr.road) {
@@ -754,10 +832,10 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
             direccion = parts[0].trim();
           }
         }
-        
+
         return direccion || '';
       }
-      
+
       return '';
     } catch (error) {
       console.error('Error en geocodificación inversa:', error);
@@ -809,19 +887,30 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private async promptRouteMetadata(): Promise<{ nombre: string; origen: string; destino: string; color: string } | null> {
-    const nombre = prompt('Nombre de la nueva ruta', `Ruta ${this.routes.length + 1}`)?.trim();
-    if (!nombre) {
+    const result = await this.confirmationService.prompt({
+      title: 'Configuración de la Ruta',
+      message: 'Ingresa los detalles básicos para la nueva ruta.',
+      confirmText: 'Siguiente',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre de la nueva ruta', value: `Ruta ${this.routes.length + 1}`, required: true },
+        { name: 'origen', label: 'Punto de origen', value: 'Origen programado', required: true },
+        { name: 'destino', label: 'Punto final', value: 'Destino programado', required: true }
+      ]
+    });
+
+    if (!result) {
       return null;
     }
-    const origen = prompt('Punto de origen', 'Origen programado')?.trim() || 'Origen pendiente';
-    const destino = prompt('Punto final', 'Destino programado')?.trim() || 'Destino pendiente';
-    
-    // Mostrar paleta de colores en lugar de prompt hexadecimal
+
+    const { nombre, origen, destino } = result;
+
+    // Mostrar paleta de colores (esto ya era custom)
     const color = await this.selectColorFromPalette();
     if (!color) {
       return null; // Usuario canceló la selección
     }
-    
+
     return { nombre, origen, destino, color };
   }
 
@@ -840,7 +929,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       justify-content: center;
       z-index: 10000;
     `;
-    
+
     const content = document.createElement('div');
     content.style.cssText = `
       background: white;
@@ -850,7 +939,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       max-width: 400px;
       width: 90%;
     `;
-    
+
     content.innerHTML = `
       <h3 style="margin: 0 0 1rem 0; font-size: 1.2rem;">Selecciona un color para la ruta</h3>
       <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
@@ -887,13 +976,13 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         "
       >Cancelar</button>
     `;
-    
+
     modal.appendChild(content);
     document.body.appendChild(modal);
-    
+
     return new Promise<string | null>((resolve) => {
       let selectedColor: string | null = this.paletteColors[0]; // Color por defecto
-      
+
       const colorButtons = content.querySelectorAll('.palette-color-btn');
       colorButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -902,13 +991,13 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
           resolve(selectedColor);
         });
       });
-      
+
       const cancelBtn = content.querySelector('#cancel-color-btn');
       cancelBtn?.addEventListener('click', () => {
         document.body.removeChild(modal);
         resolve(null);
       });
-      
+
       // Cerrar al hacer clic fuera del modal
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
@@ -932,7 +1021,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const routeColor = route.color || '#efb810';
-    
+
     // Crear efecto de relieve: línea de sombra más gruesa y oscura debajo
     this.activeRouteShadow = L.polyline(route.polyline, {
       color: '#000000',
@@ -940,7 +1029,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       opacity: 0.4,
       className: 'route-shadow'
     }).addTo(this.map);
-    
+
     // Línea principal con borde blanco para contraste
     this.activeRouteBorder = L.polyline(route.polyline, {
       color: '#ffffff',
@@ -948,7 +1037,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       opacity: 0.9,
       className: 'route-border'
     }).addTo(this.map);
-    
+
     // Línea principal de la ruta
     this.activeRoutePolyline = L.polyline(route.polyline, {
       color: routeColor,
@@ -968,7 +1057,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       const centerPoint = iconSize / 2; // Punto central exacto
       const routeColor = route.color || '#efb810';
       const isSelected = this.selectedStopId === stop.id;
-      
+
       // Crear icono circular con el color de la ruta y el número de parada
       // Si está seleccionada, usar borde más grueso y sombra más pronunciada
       const icon = L.divIcon({
@@ -985,13 +1074,13 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         iconAnchor: [centerPoint, centerPoint], // Anclaje exactamente en el CENTRO
         popupAnchor: [0, -centerPoint] // Ajuste del popup
       });
-      
+
       const marker = L.marker([stop.lat, stop.lng], {
         icon: icon,
         // Asegurar que el marcador use las coordenadas exactas sin redondeo
         draggable: false
       }).addTo(this.map!);
-      
+
       // Agregar evento de clic para seleccionar la parada cuando está en modo edición
       marker.on('click', (e: L.LeafletMouseEvent) => {
         e.originalEvent.stopPropagation(); // Prevenir que el clic se propague al mapa
@@ -999,7 +1088,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
           this.selectStop(stop);
         }
       });
-      
+
       // Construir tooltip con dirección si está disponible
       let tooltipText = stop.nombre;
       if (stop.direccion) {
@@ -1007,7 +1096,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       } else if (stop.descripcion) {
         tooltipText += ` - ${stop.descripcion}`;
       }
-      
+
       marker.bindTooltip(tooltipText, { permanent: false });
       this.activeStopMarkers.push(marker);
     });
@@ -1083,27 +1172,37 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  toggleRouteEditing() {
+  async toggleRouteEditing() {
     // Si está en modo extensión, cancelar primero
     if (this.extendingStart || this.extendingEnd) {
-      const cancel = confirm('¿Cancelar la extensión de la ruta? Los puntos agregados se perderán.');
+      const cancel = await this.confirmationService.confirm({
+        title: 'Cancelar extensión',
+        message: '¿Cancelar la extensión de la ruta? Los puntos agregados se perderán.',
+        confirmText: 'Sí, cancelar',
+        type: 'warning'
+      });
       if (!cancel) {
         return;
       }
       this.cancelExtension();
     }
-    
+
     // Si se está activando el modo edición, verificar que no haya paradas fuera de la ruta
     if (!this.isRouteEditing && this.selectedRoute) {
       const route = this.selectedRoute;
       const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, route.polyline));
       if (stopsOutside.length > 0) {
         const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-        alert(`⚠️ ADVERTENCIA: No se puede editar la ruta porque hay paradas que quedaron fuera de la ruta:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero antes de editar la ruta.`);
+        await this.confirmationService.confirm({
+          title: 'No se puede editar',
+          message: `⚠️ ADVERTENCIA: No se puede editar la ruta porque hay paradas que quedaron fuera de la ruta:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero antes de editar la ruta.`,
+          confirmText: 'Entendido',
+          type: 'warning'
+        });
         return;
       }
     }
-    
+
     this.isRouteEditing = !this.isRouteEditing;
     this.scissorMode = false;
     this.scissorSelection = [];
@@ -1130,8 +1229,13 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       : '';
   }
 
-  saveChanges() {
-    alert('Cambios preparados para persistencia');
+  async saveChanges() {
+    await this.confirmationService.confirm({
+      title: 'Guardar Cambios',
+      message: 'Cambios preparados para persistencia (Simulación).',
+      confirmText: 'OK',
+      type: 'info'
+    });
     this.hasPendingChanges = false;
   }
 
@@ -1158,7 +1262,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  private handleNodeClick(index: number) {
+  private async handleNodeClick(index: number) {
     if (!this.selectedRoute || !this.isRouteEditing) {
       return;
     }
@@ -1182,19 +1286,36 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Si es el primer nodo, ofrecer opción de extender inicio
     if (isFirstNode) {
-      const action = confirm(`¿Extender la ruta desde el inicio?\n\nAceptar: Extender inicio (haz clic en el mapa para agregar nuevos puntos al inicio)\nCancelar: Solo eliminar el nodo`);
+      const action = await this.confirmationService.confirm({
+        title: 'Opciones de Nodo Inicial',
+        message: '¿Qué deseas hacer con el punto de inicio?',
+        confirmText: 'Extender Ruta',
+        cancelText: 'Eliminar Nodo',
+        type: 'info'
+      });
+
       if (action) {
         // Modo extensión de inicio
         this.startExtendingStart();
       } else {
         // Solo eliminar el nodo si hay más de 2 puntos
         if (route.polyline.length > 2) {
-          const shouldDelete = confirm(`¿Eliminar el nodo de inicio? El siguiente punto se convertirá en el nuevo inicio.`);
+          const shouldDelete = await this.confirmationService.confirm({
+            title: 'Eliminar Inicio',
+            message: '¿Eliminar el nodo de inicio? El siguiente punto se convertirá en el nuevo inicio.',
+            confirmText: 'Eliminar',
+            type: 'danger'
+          });
           if (shouldDelete) {
             this.removeNode(index);
           }
         } else {
-          alert('La ruta necesita al menos dos puntos. Usa "Extender inicio" para agregar puntos al inicio.');
+          await this.confirmationService.confirm({
+            title: 'No se puede eliminar',
+            message: 'La ruta necesita al menos dos puntos. Usa "Extender Ruta" para agregar puntos al inicio.',
+            confirmText: 'Entendido',
+            type: 'warning'
+          });
         }
       }
       return;
@@ -1202,32 +1323,54 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Si es el último nodo, ofrecer opción de extender fin
     if (isLastNode) {
-      const action = confirm(`¿Extender la ruta desde el final?\n\nAceptar: Extender fin (haz clic en el mapa para agregar nuevos puntos al final)\nCancelar: Solo eliminar el nodo`);
+      const action = await this.confirmationService.confirm({
+        title: 'Opciones de Nodo Final',
+        message: '¿Qué deseas hacer con el punto final?',
+        confirmText: 'Extender Ruta',
+        cancelText: 'Eliminar Nodo',
+        type: 'info'
+      });
+
       if (action) {
         // Modo extensión de fin
         this.startExtendingEnd();
       } else {
         // Solo eliminar el nodo si hay más de 2 puntos
         if (route.polyline.length > 2) {
-          const shouldDelete = confirm(`¿Eliminar el nodo final? El punto anterior se convertirá en el nuevo final.`);
+          const shouldDelete = await this.confirmationService.confirm({
+            title: 'Eliminar Final',
+            message: '¿Eliminar el nodo final? El punto anterior se convertirá en el nuevo final.',
+            confirmText: 'Eliminar',
+            type: 'danger'
+          });
           if (shouldDelete) {
             this.removeNode(index);
           }
         } else {
-          alert('La ruta necesita al menos dos puntos. Usa "Extender fin" para agregar puntos al final.');
+          await this.confirmationService.confirm({
+            title: 'No se puede eliminar',
+            message: 'La ruta necesita al menos dos puntos. Usa "Extender Ruta" para agregar puntos al final.',
+            confirmText: 'Entendido',
+            type: 'warning'
+          });
         }
       }
       return;
     }
 
     // Para nodos intermedios, solo eliminar
-    const shouldDelete = confirm(`¿Eliminar el nodo ${index + 1}?`);
+    const shouldDelete = await this.confirmationService.confirm({
+      title: 'Eliminar Nodo',
+      message: `¿Eliminar el nodo ${index + 1}?`,
+      confirmText: 'Eliminar',
+      type: 'danger'
+    });
     if (shouldDelete) {
       this.removeNode(index);
     }
   }
 
-  private cutSegmentAt(cutIndex: number) {
+  private async cutSegmentAt(cutIndex: number) {
     const route = this.selectedRoute;
     if (!route || cutIndex < 0 || cutIndex >= route.polyline.length) {
       return;
@@ -1235,21 +1378,24 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Si se corta en el primer punto, preguntar si está seguro de modificar el inicio
     if (cutIndex === 0) {
-      const confirmModifyStart = confirm('¿Está seguro de que desea modificar el punto de inicio de la ruta? Esto eliminará todos los puntos después del inicio.');
+      const confirmModifyStart = await this.confirmationService.confirm({
+        title: 'Modificar Inicio',
+        message: '¿Está seguro de que desea modificar el punto de inicio de la ruta? Esto eliminará todos los puntos después del inicio.',
+        confirmText: 'Confirmar',
+        type: 'warning'
+      });
       if (!confirmModifyStart) {
         return;
       }
     }
-    // Si se corta en el último punto o cerca del final, preguntar si está seguro de modificar el fin
-    else if (cutIndex === route.polyline.length - 1) {
-      const confirmModifyEnd = confirm('¿Está seguro de que desea modificar el punto final de la ruta? Esto eliminará todos los puntos después del punto seleccionado.');
-      if (!confirmModifyEnd) {
-        return;
-      }
-    }
-    // Si se corta en cualquier otro punto, también preguntar (ya que modifica el fin)
+    // Si se corta en el último punto o cerca del final
     else {
-      const confirmModifyEnd = confirm('¿Está seguro de que desea modificar el punto final de la ruta? Esto eliminará todos los puntos después del punto seleccionado.');
+      const confirmModifyEnd = await this.confirmationService.confirm({
+        title: 'Acortar Ruta',
+        message: '¿Está seguro de que desea modificar el punto final de la ruta? Esto eliminará todos los puntos después del punto seleccionado.',
+        confirmText: 'Confirmar',
+        type: 'warning'
+      });
       if (!confirmModifyEnd) {
         return;
       }
@@ -1258,15 +1404,20 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Crear una copia temporal del polyline cortado para verificar paradas
     const tempPolyline = route.polyline.slice(0, cutIndex + 1);
     if (tempPolyline.length < 2) {
-      alert('El corte dejaría la ruta sin suficientes puntos.');
+      await this.confirmationService.confirm({ title: 'Error', message: 'El corte dejaría la ruta sin suficientes puntos.', confirmText: 'OK', type: 'danger' });
       return;
     }
-    
+
     // Verificar que no haya paradas fuera de la ruta después del corte
     const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, tempPolyline));
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`⚠️ ADVERTENCIA: No se puede cortar la ruta porque las siguientes paradas quedarían fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero antes de cortar la ruta.`);
+      await this.confirmationService.confirm({
+        title: 'Operación Bloqueada',
+        message: `⚠️ ADVERTENCIA: No se puede cortar la ruta porque las siguientes paradas quedarían fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero antes de cortar la ruta.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       return;
     }
 
@@ -1281,20 +1432,20 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  private removeNode(index: number) {
+  private async removeNode(index: number) {
     const route = this.selectedRoute;
     if (!route || route.polyline.length <= 2) {
-      alert('La ruta necesita al menos dos puntos.');
+      await this.confirmationService.confirm({ title: 'Error', message: 'La ruta necesita al menos dos puntos.', confirmText: 'OK', type: 'warning' });
       return;
     }
-    
+
     // Crear una copia temporal del polyline sin el nodo para verificar paradas
     const tempPolyline = route.polyline.filter((_, i) => i !== index);
     const stopsOutside = route.paradas.filter(stop => {
       const stopPoint = L.latLng(stop.lat, stop.lng);
       const MAX_DISTANCE_METERS = 50;
       const MAX_DISTANCE = MAX_DISTANCE_METERS / 111000;
-      
+
       for (let i = 0; i < tempPolyline.length - 1; i++) {
         const start = L.latLng(tempPolyline[i]);
         const end = L.latLng(tempPolyline[i + 1]);
@@ -1305,13 +1456,18 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       return true; // La parada está fuera
     });
-    
+
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`⚠️ ADVERTENCIA: No se puede eliminar este nodo porque las siguientes paradas quedarían fuera de la ruta:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`);
+      await this.confirmationService.confirm({
+        title: 'Operación Bloqueada',
+        message: `⚠️ ADVERTENCIA: No se puede eliminar este nodo porque las siguientes paradas quedarían fuera de la ruta:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       return;
     }
-    
+
     route.polyline = tempPolyline;
     // Ajustar numeración consecutiva de las paradas si tienen números
     this.renumberStops(route);
@@ -1322,20 +1478,25 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  startExtendingStart() {
+  async startExtendingStart() {
     const route = this.selectedRoute;
     if (!route || route.polyline.length < 1) {
       return;
     }
-    
+
     // Verificar que no haya paradas fuera de la ruta
     const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, route.polyline));
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`⚠️ ADVERTENCIA: No se puede extender el inicio de la ruta porque hay paradas que quedaron fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`);
+      await this.confirmationService.confirm({
+        title: 'Operación Bloqueada',
+        message: `⚠️ ADVERTENCIA: No se puede extender el inicio de la ruta porque hay paradas que quedaron fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       return;
     }
-    
+
     // Limpiar cualquier marcador temporal previo
     this.resetDraftRoute();
     // Entrar en modo de extensión de inicio
@@ -1349,20 +1510,25 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.renderSelectedRoute();
   }
 
-  startExtendingEnd() {
+  async startExtendingEnd() {
     const route = this.selectedRoute;
     if (!route || route.polyline.length < 1) {
       return;
     }
-    
+
     // Verificar que no haya paradas fuera de la ruta
     const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, route.polyline));
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`⚠️ ADVERTENCIA: No se puede extender el fin de la ruta porque hay paradas que quedaron fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`);
+      await this.confirmationService.confirm({
+        title: 'Operación Bloqueada',
+        message: `⚠️ ADVERTENCIA: No se puede extender el fin de la ruta porque hay paradas que quedaron fuera:\n\n${stopNames}\n\nPor favor, elimine estas paradas primero.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       return;
     }
-    
+
     // Limpiar cualquier marcador temporal previo
     this.resetDraftRoute();
     // Entrar en modo de extensión de fin
@@ -1376,14 +1542,14 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.renderSelectedRoute();
   }
 
-  finishExtension() {
+  async finishExtension() {
     const route = this.selectedRoute;
     if (!route) {
       return;
     }
 
     if (this.extensionPoints.length === 0) {
-      alert('No se han agregado puntos. La extensión se cancelará.');
+      await this.confirmationService.confirm({ title: 'Aviso', message: 'No se han agregado puntos. La extensión se cancelará.', confirmText: 'OK', type: 'info' });
       this.cancelExtension();
       return;
     }
@@ -1410,7 +1576,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, route.polyline));
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`⚠️ ADVERTENCIA: Las siguientes paradas quedaron fuera de la ruta después de la extensión:\n\n${stopNames}\n\nPor favor, elimine estas paradas antes de continuar.`);
+      await this.confirmationService.confirm({
+        title: 'Problema con la extensión',
+        message: `⚠️ ADVERTENCIA: Las siguientes paradas quedaron fuera de la ruta después de la extensión:\n\n${stopNames}\n\nPor favor, elimine estas paradas antes de continuar.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       // Revertir el cambio
       this.cancelExtension();
       this.renderSelectedRoute();
@@ -1440,42 +1611,32 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * Renumera las paradas para que tengan números consecutivos en sus nombres.
-   * Extrae el número del nombre y lo reemplaza con un número consecutivo.
-   * Ejemplo: Si se elimina "Parada 4" entre "Parada 3" y "Parada 5",
-   * entonces "Parada 5" se convierte en "Parada 4".
+   * Renumera las paradas
    */
   private renumberStops(route: PlannedRoute) {
     route.paradas.forEach((stop, index) => {
       const newNumber = index + 1;
-      // Detectar si el nombre tiene un patrón numérico al final (más común)
-      // Ejemplos: "Parada 4", "Punto 3", "Norte 2", "Parada4", etc.
       const match = stop.nombre.match(/^(.+?)\s*(\d+)$/);
       if (match) {
-        // Si tiene un número al final, reemplazarlo con el número consecutivo
         const baseName = match[1].trim();
-        // Mantener el formato original (con o sin espacio)
         const hasSpace = match[0].includes(' ');
         stop.nombre = hasSpace ? `${baseName} ${newNumber}` : `${baseName}${newNumber}`;
       } else {
-        // Si no tiene número al final, buscar el último número en el nombre
         const lastNumberMatch = stop.nombre.match(/(\d+)(?!.*\d)/);
         if (lastNumberMatch) {
-          // Reemplazar solo el último número encontrado
           const numberStart = lastNumberMatch.index!;
           const numberLength = lastNumberMatch[0].length;
           const beforeNumber = stop.nombre.substring(0, numberStart);
           const afterNumber = stop.nombre.substring(numberStart + numberLength);
           stop.nombre = `${beforeNumber}${newNumber}${afterNumber}`;
         } else {
-          // Si no hay número en el nombre, agregar uno al final
           stop.nombre = `${stop.nombre} ${newNumber}`;
         }
       }
     });
   }
 
-  private cutSegmentBetween(first: number, second: number) {
+  private async cutSegmentBetween(first: number, second: number) {
     const route = this.selectedRoute;
     if (!route) {
       return;
@@ -1486,7 +1647,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     route.polyline = route.polyline.slice(0, cutIndex + 1);
     // El último punto se convierte en el punto final
     if (route.polyline.length < 2) {
-      alert('El corte dejaría la ruta sin suficientes puntos.');
+      await this.confirmationService.confirm({ title: 'Error', message: 'El corte dejaría la ruta sin suficientes puntos.', confirmText: 'OK', type: 'danger' });
       return;
     }
     // Ajustar numeración consecutiva de las paradas si tienen números
@@ -1496,18 +1657,24 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.markPendingChanges();
   }
 
-  private insertNodeAt(latlng: L.LatLng) {
+  private async insertNodeAt(latlng: L.LatLng) {
     const route = this.selectedRoute;
     if (!route || route.polyline.length < 2) {
       return;
     }
-    
+
     // Pedir confirmación antes de agregar el punto porque esto cambia completamente la ruta
-    const confirmAdd = confirm('¿Está seguro de que desea agregar un nuevo punto a la ruta? Esto modificará completamente el trazado de la ruta.');
+    const confirmAdd = await this.confirmationService.confirm({
+      title: 'Agregar Punto',
+      message: '¿Está seguro de que desea agregar un nuevo punto a la ruta? Esto modificará el trazado de la ruta.',
+      confirmText: 'Agregar',
+      type: 'info'
+    });
+
     if (!confirmAdd) {
       return;
     }
-    
+
     const closest = this.findClosestSegment(route.polyline, latlng);
     if (!closest) {
       return;
@@ -1515,19 +1682,24 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Usar coordenadas exactas sin redondeo
     const exactPoint: [number, number] = [latlng.lat, latlng.lng];
     route.polyline.splice(closest.index + 1, 0, exactPoint);
-    
+
     // Verificar si hay paradas fuera de la ruta después de agregar el punto
     const stopsOutside = route.paradas.filter(stop => !this.isStopWithinRoute(stop, route.polyline));
     if (stopsOutside.length > 0) {
       const stopNames = stopsOutside.map(s => s.nombre).join(', ');
-      alert(`ADVERTENCIA: Las siguientes paradas quedaron fuera de la ruta después de agregar el punto:\n\n${stopNames}\n\nPor favor, elimine estas paradas antes de continuar editando la ruta.`);
+      await this.confirmationService.confirm({
+        title: 'Operación Bloqueada',
+        message: `ADVERTENCIA: Las siguientes paradas quedaron fuera de la ruta después de agregar el punto:\n\n${stopNames}\n\nPor favor, elimine estas paradas antes de continuar editando la ruta.`,
+        confirmText: 'Entendido',
+        type: 'warning'
+      });
       // Revertir el cambio
       route.polyline.splice(closest.index + 1, 1);
       this.routes = this.routes.map(r => r.id === route.id ? { ...route } : r);
       this.renderSelectedRoute();
       return;
     }
-    
+
     this.routes = this.routes.map(r => r.id === route.id ? { ...route } : r);
     this.renderSelectedRoute();
     // Sincronizar inmediatamente
@@ -1595,7 +1767,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     for (let i = 0; i < polyline.length - 1; i++) {
       const start = L.latLng(polyline[i]);
       const end = L.latLng(polyline[i + 1]);
-      
+
       // Calcular el punto más cercano en este segmento
       const A = point.lng - start.lng;
       const B = point.lat - start.lat;
@@ -1604,19 +1776,19 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       const dot = A * C + B * D;
       const lenSq = C * C + D * D;
       let param = 0;
-      
+
       if (lenSq !== 0) {
         param = dot / lenSq;
         // Limitar param entre 0 y 1 para estar en el segmento
         param = Math.max(0, Math.min(1, param));
       }
-      
+
       const closestX = start.lng + param * C;
       const closestY = start.lat + param * D;
       const closest = L.latLng(closestY, closestX);
-      
+
       const distance = this.distanceBetweenPoints(point, closest);
-      
+
       if (distance < minDistance) {
         minDistance = distance;
         closestPoint = [closestY, closestX];
@@ -1631,7 +1803,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     const lng1 = point1.lng;
     const lat2 = Array.isArray(point2) ? point2[0] : point2.lat;
     const lng2 = Array.isArray(point2) ? point2[1] : point2.lng;
-    
+
     const dx = lng2 - lng1;
     const dy = lat2 - lat1;
     return Math.sqrt(dx * dx + dy * dy);
@@ -1645,7 +1817,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Distancia máxima permitida en grados (aproximadamente 50 metros, igual que al agregar)
     const MAX_DISTANCE_METERS = 50;
     const MAX_DISTANCE = MAX_DISTANCE_METERS / 111000; // Aproximadamente 1 grado = 111km
-    
+
     for (let i = 0; i < polyline.length - 1; i++) {
       const start = L.latLng(polyline[i]);
       const end = L.latLng(polyline[i + 1]);
@@ -1726,7 +1898,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     const iconSize = this.getIconSizeForZoom();
     const centerPoint = iconSize / 2; // Punto central exacto
-    
+
     this.activeStopMarkers.forEach(marker => {
       const newIcon = L.divIcon({
         className: 'stop-marker-container',
@@ -1837,7 +2009,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
       const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
       const centerPoint = iconSize / 2;
-      
+
       const circleColor = isActive ? '#10b981' : '#6b7280';
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
@@ -1853,7 +2025,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         iconAnchor: [centerPoint, centerPoint],
         popupAnchor: [0, -centerPoint]
       });
-      
+
       const marker = L.marker([vehicle.lat, vehicle.lng], { icon }).addTo(this.map!);
       marker.bindPopup(`
         <div class="vehicle-popup">

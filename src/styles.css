@@ -16,7 +16,10 @@
     --card-background: #ffffff;
     --card-border: #e5e5e5;
     --header-background: #ffffff;
-    --sidebar-background: #0b0b0b;
+    --sidebar-background: #ffffff;
+    --sidebar-text: #1a1a1a;
+    --sidebar-text-muted: #64748b;
+    --sidebar-border: #e2e8f0;
     --input-background: #f8f9fa;
     --table-header-bg: #FFF8E1;
     --table-hover-bg: #FFFDE7;
@@ -52,6 +55,9 @@
     --card-border: #333333;
     --header-background: #1a1a1a;
     --sidebar-background: #0b0b0b;
+    --sidebar-text: #ffffff;
+    --sidebar-text-muted: rgba(255, 255, 255, 0.65);
+    --sidebar-border: rgba(255, 193, 7, 0.1);
     --input-background: #2a2a2a;
     --table-header-bg: #2a2a2a;
     --table-hover-bg: #252525;
@@ -204,7 +210,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .header-left h1 {
@@ -265,7 +271,7 @@ body {
     background: var(--stat-card-bg);
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     display: flex;
     align-items: center;
     gap: 15px;
@@ -276,7 +282,7 @@ body {
 
 .stat-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .stat-icon {
@@ -309,6 +315,31 @@ body {
     margin-bottom: 3px;
     line-height: 1.2;
     transition: color 0.3s ease;
+}
+
+/* Light Theme Overrides for Dashboard/Monitoring */
+.light-theme .content-header {
+    background: var(--header-background);
+    color: var(--text-color);
+    border-bottom: 1px solid var(--card-border);
+}
+
+.light-theme .header-left h1,
+.light-theme .header-left p,
+.light-theme .status-indicator,
+.light-theme .user-info {
+    color: var(--text-color);
+}
+
+.light-theme .status-dot {
+    opacity: 0.8;
+}
+
+.light-theme .stat-icon {
+    background: var(--background-color);
+    border-color: var(--card-border);
+    color: var(--text-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .stat-change {
@@ -386,7 +417,8 @@ body {
 }
 
 .btn-edit,
-.btn-delete {
+.btn-delete,
+.btn-view {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -399,19 +431,25 @@ body {
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
     border: none;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2);
-    min-width: 140px;
+    width: 145px;
+    /* Fixed width for perfect uniformity */
+    max-width: 145px;
+    white-space: nowrap;
     justify-content: center;
+    flex: 0 0 auto;
 }
 
 .btn-edit,
-.btn-delete {
+.btn-delete,
+.btn-view {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%);
     color: #facc15;
     border: 2px solid rgba(250, 204, 21, 0.7);
 }
 
 .btn-edit:hover,
-.btn-delete:hover {
+.btn-delete:hover,
+.btn-view:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 22px rgba(15, 23, 42, 0.35);
     background: linear-gradient(135deg, #facc15 0%, #f97316 80%);
@@ -425,6 +463,7 @@ body {
 .light-theme .btn-primary,
 .light-theme .btn-edit,
 .light-theme .btn-delete,
+.light-theme .btn-view,
 .light-theme .btn-action,
 .light-theme .settings-buttons .btn-admin,
 .light-theme .settings-buttons .btn-change-password,
@@ -439,6 +478,7 @@ body {
 .light-theme .btn-primary:hover,
 .light-theme .btn-edit:hover,
 .light-theme .btn-delete:hover,
+.light-theme .btn-view:hover,
 .light-theme .btn-action:hover,
 .light-theme .settings-buttons .btn-admin:hover,
 .light-theme .settings-buttons .btn-change-password:hover,
@@ -449,21 +489,92 @@ body {
 }
 
 .btn-edit:focus-visible,
-.btn-delete:focus-visible {
+.btn-delete:focus-visible,
+.btn-view:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 3px;
 }
 
-.table-actions {
+/* Icon Buttons (View, Chat, etc.) */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: white;
+    text-decoration: none;
+}
+
+.btn-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* .btn-icon.view kept for icon-only usage (Reports) */
+.btn-icon.view {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%);
+    color: #facc15;
+    border: 1px solid rgba(250, 204, 21, 0.7);
+}
+
+.btn-icon.view:hover {
+    background: linear-gradient(135deg, #facc15 0%, #f97316 80%);
+    color: #0f172a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-icon.chat {
+    background-color: #8b5cf6;
+}
+
+.btn-icon.chat:hover {
+    background-color: #7c3aed;
+}
+
+/* btn-view now shares standard styles above */
+
+.btn-icon.progress {
+    background-color: #f59e0b;
+}
+
+.btn-icon.progress:hover {
+    background-color: #d97706;
+}
+
+.btn-icon.close {
+    background-color: #10b981;
+}
+
+.btn-icon.close:hover {
+    background-color: #059669;
+}
+
+.btn-icon.reopen {
+    background-color: #6b7280;
+}
+
+.btn-icon.reopen:hover {
+    background-color: #4b5563;
+}
+
+.table-actions {
+    display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
     justify-content: flex-start;
 }
 
 .table-actions .btn-edit,
-.table-actions .btn-delete {
-    flex: 1 1 140px;
+.table-actions .btn-delete,
+.table-actions .btn-view {
+    width: 145px;
+    flex: 0 0 auto;
 }
 
 /* Formularios */
@@ -472,7 +583,7 @@ body {
     border-radius: 12px;
     padding: 25px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--card-border);
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -535,7 +646,7 @@ body {
     background: var(--card-background);
     border-radius: 12px;
     padding: 25px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--card-border);
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -549,13 +660,17 @@ body {
     transition: color 0.3s ease;
 }
 
-.drivers-table, .vehicles-table, .routes-table {
+.drivers-table,
+.vehicles-table,
+.routes-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
 }
 
-.drivers-table th, .vehicles-table th, .routes-table th {
+.drivers-table th,
+.vehicles-table th,
+.routes-table th {
     background-color: var(--table-header-bg);
     color: var(--text-color);
     padding: 12px;
@@ -565,14 +680,18 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.drivers-table td, .vehicles-table td, .routes-table td {
+.drivers-table td,
+.vehicles-table td,
+.routes-table td {
     padding: 12px;
     border-bottom: 1px solid var(--card-border);
     color: var(--text-color);
     transition: border-color 0.3s ease, color 0.3s ease;
 }
 
-.drivers-table tr:hover, .vehicles-table tr:hover, .routes-table tr:hover {
+.drivers-table tr:hover,
+.vehicles-table tr:hover,
+.routes-table tr:hover {
     background-color: var(--table-hover-bg);
     transition: background-color 0.3s ease;
 }
@@ -583,8 +702,15 @@ body {
    estilo base que el botón principal .btn-submit */
 .dark-theme .vehicles-table .btn-edit,
 .dark-theme .vehicles-table .btn-delete,
-.dark-theme .vehicles-table .btn-edit,
-.dark-theme .vehicles-table .btn-delete {
+.dark-theme .vehicles-table .btn-view,
+.dark-theme .drivers-table .btn-edit,
+.dark-theme .drivers-table .btn-delete,
+.dark-theme .drivers-table .btn-view,
+.dark-theme .routes-table .btn-action,
+.dark-theme .btn-action,
+.dark-theme .btn-edit,
+.dark-theme .btn-delete,
+.dark-theme .btn-view {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%) !important;
     color: #facc15 !important;
     border: 2px solid rgba(250, 204, 21, 0.7) !important;
@@ -596,12 +722,20 @@ body {
 }
 
 .dark-theme .vehicles-table .btn-edit i,
-.dark-theme .vehicles-table .btn-delete i {
+.dark-theme .vehicles-table .btn-delete i,
+.dark-theme .routes-table .btn-action i,
+.dark-theme .btn-action i {
     font-size: 0.9rem;
 }
 
 .dark-theme .vehicles-table .btn-edit:hover:not(:disabled),
-.dark-theme .vehicles-table .btn-delete:hover:not(:disabled) {
+.dark-theme .vehicles-table .btn-delete:hover:not(:disabled),
+.dark-theme .drivers-table .btn-edit:hover:not(:disabled),
+.dark-theme .drivers-table .btn-delete:hover:not(:disabled),
+.dark-theme .routes-table .btn-action:hover:not(:disabled),
+.dark-theme .btn-action:hover:not(:disabled),
+.dark-theme .btn-edit:hover:not(:disabled),
+.dark-theme .btn-delete:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 18px 30px rgba(15, 23, 42, 0.35) !important;
     background: linear-gradient(135deg, #facc15 0%, #f97316 80%) !important;
@@ -757,7 +891,7 @@ body {
 .dashboard-card {
     background: var(--card-background);
     border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     overflow: hidden;
     margin-bottom: 20px;
     border: 1px solid var(--card-border);
@@ -802,9 +936,17 @@ body {
 
 /* Animaciones */
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 @keyframes fadeIn {
@@ -812,6 +954,7 @@ body {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -841,24 +984,26 @@ body {
     .sidebar {
         transform: translateX(-100%);
     }
-    
+
     .sidebar.open {
         transform: translateX(0);
     }
-    
+
     .main-content {
         margin-left: 0;
     }
-    
+
     .content-header {
         padding: 20px;
     }
-    
+
     .header-left h1 {
         font-size: 20px;
     }
-    
-    .btn-submit, .btn-edit, .btn-delete {
+
+    .btn-submit,
+    .btn-edit,
+    .btn-delete {
         width: 100%;
         margin-bottom: 10px;
     }

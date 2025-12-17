@@ -45,7 +45,7 @@ export class FleetService {
       nombreCompleto: 'Juan Pérez Rodríguez',
       telefono: '5234567890',
       email: 'juan@example.com',
-      categorias: ['B', 'D'],
+      categorias: ['B', 'D', 'D-1'],
       vehiculoId: 1
     },
     {
@@ -54,14 +54,15 @@ export class FleetService {
       nombreCompleto: 'María García López',
       telefono: '5367890123',
       email: 'maria@example.com',
-      categorias: ['B', 'C'],
+      categorias: ['B', 'C', 'D-1'],
       vehiculoId: null
     }
   ]);
 
   private vehiclesSubject = new BehaviorSubject<FleetVehicle[]>([
-    { id: 1, matricula: 'ABC-1234', marca: 'Toyota', modelo: 'Prius', tipo: 'Híbrido', estado: 'Activo', conductorId: 1 },
-    { id: 2, matricula: 'XYZ-5678', marca: 'Nissan', modelo: 'Leaf', tipo: 'Eléctrico', estado: 'Activo', conductorId: null }
+    { id: 1, matricula: 'ABC-1234', marca: 'Toyota', modelo: 'Prius', tipo: 'Híbrido (NiMH)', estado: 'Activo', conductorId: 1 },
+    { id: 2, matricula: 'XYZ-5678', marca: 'Tesla', modelo: 'Model 3', tipo: 'Fosfato de Hierro y Litio (LFP)', estado: 'Activo', conductorId: null },
+    { id: 3, matricula: 'DEF-9012', marca: 'BYD', modelo: 'Seal', tipo: 'Blade Battery (LFP)', estado: 'Mantenimiento', conductorId: null }
   ]);
 
   readonly drivers$ = this.driversSubject.asObservable();
@@ -75,6 +76,54 @@ export class FleetService {
       vehiculoId: null
     };
     drivers.unshift(newDriver);
+    this.driversSubject.next(drivers);
+  }
+
+  updateDriver(updatedDriver: Driver) {
+    const drivers = this.driversSubject.getValue().map(d =>
+      d.id === updatedDriver.id ? updatedDriver : d
+    );
+    this.driversSubject.next(drivers);
+  }
+
+  deleteDriver(driverId: number) {
+    const drivers = this.driversSubject.getValue().filter(d => d.id !== driverId);
+    this.driversSubject.next(drivers);
+
+    // Desasignar vehículo si tenía uno
+    const vehicles = this.vehiclesSubject.getValue().map(v =>
+      v.conductorId === driverId ? { ...v, conductorId: null } : v
+    );
+    this.vehiclesSubject.next(vehicles);
+  }
+
+  addVehicle(vehicle: Omit<FleetVehicle, 'id' | 'conductorId'>) {
+    const vehicles = [...this.vehiclesSubject.getValue()];
+    const newVehicle: FleetVehicle = {
+      ...vehicle,
+      id: Date.now(),
+      conductorId: null,
+      estado: 'Activo'
+    };
+    vehicles.unshift(newVehicle);
+    this.vehiclesSubject.next(vehicles);
+  }
+
+  updateVehicle(updatedVehicle: FleetVehicle) {
+    const vehicles = this.vehiclesSubject.getValue().map(v =>
+      v.id === updatedVehicle.id ? updatedVehicle : v
+    );
+    this.vehiclesSubject.next(vehicles);
+  }
+
+  deleteVehicle(vehicleId: number) {
+    const vehicles = this.vehiclesSubject.getValue().filter(v => v.id !== vehicleId);
+    this.vehiclesSubject.next(vehicles);
+
+    // Desasignar conductor si tenía uno
+    const drivers = this.driversSubject.getValue().map(d =>
+      d.vehiculoId === vehicleId ? { ...d, vehiculoId: null } : d
+    );
     this.driversSubject.next(drivers);
   }
 

@@ -4,46 +4,63 @@
 
   <section class="admin-content">
     <div class="form-section">
-      <h2>Registrar Nuevo Vehículo</h2>
+      <h2>{{ isEditing ? 'Editar Vehículo' : 'Registrar Nuevo Vehículo' }}</h2>
       <form (ngSubmit)="onSubmit()" #vehicleForm="ngForm">
+        <div *ngIf="formError" class="form-banner form-banner--error"
+          style="margin-bottom: 1rem; padding: 1rem; background: #fee2e2; color: #991b1b; border-radius: 8px;">
+          <i class="fas fa-exclamation-triangle"></i> {{ formError }}
+        </div>
+        <div *ngIf="formSuccess" class="form-banner form-banner--success"
+          style="margin-bottom: 1rem; padding: 1rem; background: #d1fae5; color: #065f46; border-radius: 8px;">
+          <i class="fas fa-check-circle"></i> {{ formSuccess }}
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label for="matricula">Matrícula</label>
-            <input type="text" id="matricula" name="matricula" [(ngModel)]="newVehicle.matricula" required>
+            <input type="text" id="matricula" name="matricula" [(ngModel)]="newVehicle.matricula" required
+              placeholder="Ej: B123456">
           </div>
           <div class="form-group">
             <label for="marca">Marca</label>
-            <input type="text" id="marca" name="marca" [(ngModel)]="newVehicle.marca" required>
+            <input type="text" id="marca" name="marca" [(ngModel)]="newVehicle.marca" required placeholder="Ej: BYD">
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="modelo">Modelo</label>
-            <input type="text" id="modelo" name="modelo" [(ngModel)]="newVehicle.modelo" required>
+            <input type="text" id="modelo" name="modelo" [(ngModel)]="newVehicle.modelo" required placeholder="Ej: E2">
           </div>
           <div class="form-group">
-            <label for="tipo">Tipo de batería</label>
+            <label for="tipo">Tipo de Batería</label>
             <select id="tipo" name="tipo" [(ngModel)]="newVehicle.tipo" required>
-              <option value="">Seleccionar...</option>
-              <option value="Plomo-ácido">Plomo-ácido</option>
-              <option value="Li-ion (NMC)">Li-ion (NMC)</option>
-              <option value="LiFePO4">LiFePO₄ (LFP)</option>
-              <option value="NiMH">NiMH (Hidruro metálico de níquel)</option>
-              <option value="Batería de sodio">Batería de sodio</option>
-              <option value="Otra / Mixta">Otra / Mixta</option>
+              <option value="" disabled selected>Selecciona una opción</option>
+              <option value="Ion-Litio (Li-ion)">Ion-Litio (Li-ion)</option>
+              <option value="Fosfato de Hierro y Litio (LFP)">Fosfato de Hierro y Litio (LFP)</option>
+              <option value="Níquel-Manganeso-Cobalto (NMC)">Níquel-Manganeso-Cobalto (NMC)</option>
+              <option value="Estado Sólido">Estado Sólido</option>
+              <option value="Polímero de Litio (LiPo)">Polímero de Litio (LiPo)</option>
             </select>
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <button type="submit" class="btn-submit">Registrar Vehículo</button>
+            <div class="button-group" style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn-submit">
+                {{ isEditing ? 'Guardar Cambios' : 'Registrar Vehículo' }}
+              </button>
+              <button type="button" class="btn-delete" style="background: #64748b; color: white; border-color: #64748b;"
+                *ngIf="isEditing" (click)="cancelEdit()">
+                <i class="fas fa-times"></i> Cancelar Edición
+              </button>
+            </div>
           </div>
         </div>
       </form>
     </div>
-    
+
     <div class="table-section">
       <h2>Vehículos Registrados</h2>
       <table class="vehicles-table">
@@ -52,7 +69,7 @@
             <th>Matrícula</th>
             <th>Marca</th>
             <th>Modelo</th>
-            <th>Tipo de batería</th>
+            <th>Tipo de Batería</th>
             <th>Estado</th>
             <th>Conductor asignado</th>
             <th>Asignar conductor</th>
@@ -86,13 +103,9 @@
                 </div>
                 <div class="assign-card__control">
                   <label class="assign-card__label">Nuevo conductor</label>
-                  <select
-                    class="assign-card__select"
-                    [ngModel]="vehicle.conductorId ?? ''"
-                    (ngModelChange)="assignDriver(vehicle, $event)"
-                    [ngModelOptions]="{ standalone: true }"
-                    aria-label="Asignar conductor al vehículo"
-                  >
+                  <select class="assign-card__select" [ngModel]="vehicle.conductorId ?? ''"
+                    (ngModelChange)="assignDriver(vehicle, $event)" [ngModelOptions]="{ standalone: true }"
+                    aria-label="Asignar conductor al vehículo">
                     <option value="">Sin conductor</option>
                     <option *ngFor="let driver of drivers" [value]="driver.id">
                       {{ driver.nombreCompleto }} · CI {{ driver.ci }}
@@ -103,6 +116,10 @@
             </td>
             <td>
               <div class="table-actions">
+                <button class="btn-view" (click)="viewVehicle(vehicle)">
+                  <i class="fas fa-eye"></i>
+                  Visualizar
+                </button>
                 <button class="btn-edit" (click)="editVehicle(vehicle)">
                   <span class="material-icons">edit</span>
                   Editar
@@ -119,4 +136,3 @@
     </div>
   </section>
 </app-layout>
-

@@ -1,0 +1,101 @@
+<app-layout>
+    <div header-title>Control de Sesiones</div>
+    <div header-subtitle>Monitoreo de usuarios conectados en tiempo real</div>
+
+    <div class="sessions-container">
+        <!-- page-header removed as it is now in the layout -->
+
+        <div class="sessions-list">
+            <div class="controls">
+                <button class="refresh-btn" (click)="refreshSessions()">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+
+            <div class="table-container">
+                <h3>Sesiones Activas</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Correo Electrónico</th>
+                            <th>Rol</th>
+                            <th>Hora de Inicio</th>
+                            <th>Estado</th>
+                            <th>ID Sesión</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let session of sessions">
+                            <td>
+                                <div class="user-cell">
+                                    <div class="avatar" [ngClass]="session.role">
+                                        {{ session.username.charAt(0).toUpperCase() }}
+                                    </div>
+                                    <span>{{ session.username }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="role-badge" [ngClass]="session.role">
+                                    {{ session.role | titlecase }}
+                                </span>
+                            </td>
+                            <td>{{ session.loginTime | date:'medium' }}</td>
+                            <td>
+                                <div class="status-indicator">
+                                    <span class="dot" [class.active]="session.active"></span>
+                                    {{ session.active ? 'Activo' : 'Cerrado' }}
+                                </div>
+                            </td>
+                            <td class="id-cell">{{ session.id }}</td>
+                            <td>
+                                <button *ngIf="session.active" class="btn-delete small"
+                                    (click)="closeSession(session.id)">
+                                    <i class="fas fa-power-off"></i> Cerrar
+                                </button>
+                            </td>
+                        </tr>
+                        <tr *ngIf="sessions.length === 0" class="no-data">
+                            <td colspan="6">No hay sesiones activas registradas</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-container mt-4">
+                <h3>Gestión de Usuarios</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Correo</th>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let user of users">
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.name }}</td>
+                            <td>
+                                <span class="role-badge" [ngClass]="user.role">
+                                    {{ user.role | titlecase }}
+                                </span>
+                            </td>
+                            <td class="actions-cell">
+                                <button class="btn-edit small" (click)="resetPassword(user.username)"
+                                    title="Restablecer Contraseña">
+                                    <i class="fas fa-key"></i> Reset Pass
+                                </button>
+                                <button *ngIf="user.role !== 'admin'" class="btn-delete small"
+                                    (click)="deleteUser(user.username)" title="Eliminar Usuario">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</app-layout>

@@ -1,0 +1,141 @@
+.driver-container {
+  padding: 20px;
+  height: calc(100vh - 100px);
+  /* Ajuste para el layout */
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-container {
+  flex: 1;
+  max-width: 100%;
+  margin: 0;
+  background: var(--card-background);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+}
+
+.chat-header {
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+  color: #FFC107;
+  border-bottom: 2px solid #FFC107;
+}
+
+.chat-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #FFC107;
+}
+
+.chat-header p {
+  margin: 5px 0 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+  color: #FFC107;
+}
+
+.messages-area {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background-color: var(--background-color);
+}
+
+.message {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+.message.sent {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message.received {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-content {
+  padding: 10px 15px;
+  border-radius: 15px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.message.sent .message-content {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%);
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  border-bottom-right-radius: 5px;
+}
+
+.message.received .message-content {
+  background: var(--surface-muted);
+  color: var(--text-color);
+  border: 1px solid var(--card-border);
+  border-bottom-left-radius: 5px;
+}
+
+.time {
+  font-size: 0.7rem;
+  margin-top: 5px;
+  display: block;
+  opacity: 0.8;
+  text-align: right;
+}
+
+.input-area {
+  padding: 20px;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  gap: 10px;
+  background: var(--card-background);
+}
+
+.input-area input {
+  flex: 1;
+  padding: 12px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  outline: none;
+  transition: border-color 0.3s;
+  background: var(--input-background);
+  color: var(--text-color);
+}
+
+.input-area input:focus {
+  border-color: #FFC107;
+}
+
+.input-area button {
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  /* Reset padding for icon-only button */
+}
+
+.input-area button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #facc15 0%, #f97316 80%);
+  color: #0f172a;
+  border-color: transparent;
+}
+
+.input-area button:disabled {
+  background: var(--surface-muted);
+  color: var(--muted-text);
+  border-color: var(--card-border);
+  cursor: not-allowed;
+}

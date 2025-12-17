@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -20,7 +21,10 @@ export class LoginComponent implements OnInit {
   @ViewChild('passwordInput') passwordInput!: ElementRef<HTMLInputElement>;
   @ViewChild('usernameInput') usernameInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) { }
 
   ngOnInit() {
     // Asegurar que los campos estén vacíos al inicializar
@@ -51,19 +55,25 @@ export class LoginComponent implements OnInit {
     this.loading = true;
     this.hideMessage();
 
-    // Simulación de login (solo vista, sin API)
-    setTimeout(() => {
-      this.loading = false;
-      sessionStorage.setItem('userRole', 'admin');
-      sessionStorage.setItem('isLoggedIn', 'true');
-      this.showMessage('¡Login exitoso! Redirigiendo...', 'success');
-      // Limpiar los campos después del login
-      this.username = '';
-      this.password = '';
-      setTimeout(() => {
-        this.router.navigate(['/dashboard']);
-      }, 1000);
-    }, 1500);
+    this.authService.login(this.username, this.password).subscribe({
+      next: (success) => {
+        this.loading = false;
+        if (success) {
+          const user = this.authService.getCurrentUser();
+          this.showMessage('¡Login exitoso! Redirigiendo...', 'success');
+
+          setTimeout(() => {
+            this.router.navigate(['/home']);
+          }, 1000);
+        } else {
+          this.showMessage('Usuario o contraseña incorrectos', 'error');
+        }
+      },
+      error: () => {
+        this.loading = false;
+        this.showMessage('Error al intentar iniciar sesión', 'error');
+      }
+    });
   }
 
   showMessage(text: string, type: 'success' | 'error' | 'info') {

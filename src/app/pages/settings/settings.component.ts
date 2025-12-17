@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../shared/layout/layout.component';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-settings',
@@ -21,28 +22,21 @@ export class SettingsComponent {
   messageType: 'success' | 'error' | 'info' = 'info';
   isLoggedIn = false;
 
-  constructor(private router: Router) {
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) {
     this.checkLoginStatus();
   }
 
   checkLoginStatus() {
-    try {
-      const storage = typeof window !== 'undefined' ? window.sessionStorage : undefined;
-      if (storage) {
-        this.isLoggedIn = storage.getItem('isLoggedIn') === 'true';
-      }
-    } catch {
-      this.isLoggedIn = false;
-    }
+    this.authService.currentUser$.subscribe(user => {
+      this.isLoggedIn = !!user;
+    });
   }
 
   logout() {
-    // Limpiar sessionStorage
-    sessionStorage.removeItem('userRole');
-    sessionStorage.removeItem('isLoggedIn');
-    this.isLoggedIn = false;
-    // Redirigir al login
-    this.router.navigate(['/login']);
+    this.authService.logout();
   }
 
   openChangePasswordModal() {
@@ -63,7 +57,6 @@ export class SettingsComponent {
   }
 
   onChangePassword() {
-    // Validaciones
     if (!this.currentPassword || !this.newPassword || !this.confirmPassword) {
       this.showMessage('Por favor completa todos los campos', 'error');
       return;
@@ -74,22 +67,25 @@ export class SettingsComponent {
       return;
     }
 
-    if (this.newPassword.length < 6) {
-      this.showMessage('La nueva contraseña debe tener al menos 6 caracteres', 'error');
+    if (this.newPassword.length < 4) {
+      this.showMessage('La contraseña es muy corta', 'error');
       return;
     }
 
     this.loading = true;
     this.hideMessage();
 
-    // Simulación de cambio de contraseña (sin API)
-    setTimeout(() => {
+    this.authService.changePassword(this.currentPassword, this.newPassword).subscribe(success => {
       this.loading = false;
-      this.showMessage('¡Contraseña cambiada exitosamente!', 'success');
-      setTimeout(() => {
-        this.closeChangePasswordModal();
-      }, 1500);
-    }, 1500);
+      if (success) {
+        this.showMessage('¡Contraseña cambiada exitosamente!', 'success');
+        setTimeout(() => {
+          this.closeChangePasswordModal();
+        }, 1500);
+      } else {
+        this.showMessage('La contraseña actual es incorrecta', 'error');
+      }
+    });
   }
 
   showMessage(text: string, type: 'success' | 'error' | 'info') {

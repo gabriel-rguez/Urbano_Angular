@@ -1,16 +1,65 @@
 <app-layout>
-  <div header-title><i class="fas fa-chart-bar"></i> Reportes</div>
-  <div header-subtitle>Análisis y estadísticas del sistema</div>
+  <div header-title>Gestión de Reportes</div>
+  <div header-subtitle>Incidencias reportadas por conductores</div>
 
-  <section class="admin-content">
-    <div class="dashboard-card">
-      <div class="card-header">
-        <h3><i class="fas fa-chart-line"></i> Estadísticas Generales</h3>
-      </div>
-      <div class="card-content">
-        <p>Gestión de reportes y estadísticas (solo vista)</p>
-      </div>
+  <div class="reports-container">
+    <div class="table-responsive">
+      <table class="reports-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Conductor</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let report of reports">
+            <td class="id-col">{{ report.id }}</td>
+            <td class="title-col">{{ report.title || 'Sin título' }}</td>
+            <td>{{ report.driverName }}</td>
+            <td>{{ report.date | date:'short' }}</td>
+            <td>
+              <span class="status-badge" [ngClass]="getStatusClass(report.status)">
+                {{ getStatusLabel(report.status) }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-icon view" (click)="viewReport(report)" title="Ver detalle">
+                  <i class="fas fa-eye"></i>
+                </button>
+
+                <button *ngIf="report.sourceConversationId" class="btn-icon chat" (click)="navigateToChat(report)"
+                  title="Ir al chat con conductor">
+                  <i class="fas fa-comment-dots"></i>
+                </button>
+
+                <!-- Status Actions Dropdown-like (Simplified) -->
+                <button *ngIf="report.status === 'open'" class="btn-icon progress"
+                  (click)="updateStatus(report, 'in-progress')" title="Marcar en proceso">
+                  <i class="fas fa-spinner"></i>
+                </button>
+
+                <button *ngIf="report.status === 'closed'" class="btn-icon reopen"
+                  (click)="updateStatus(report, 'open')" title="Reabrir caso">
+                  <i class="fas fa-undo"></i>
+                </button>
+
+                <button *ngIf="report.status !== 'closed'" class="btn-icon close"
+                  (click)="updateStatus(report, 'closed')" title="Cerrar reporte">
+                  <i class="fas fa-check"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="reports.length === 0">
+            <td colspan="6" class="empty-state">No hay reportes registrados</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </section>
+  </div>
 </app-layout>
-

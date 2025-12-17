@@ -2,29 +2,39 @@ import { Component, OnInit, ViewEncapsulation, OnDestroy } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from '../../core/services/theme.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Subscription } from 'rxjs';
+import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ConfirmDialogComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.css',
   encapsulation: ViewEncapsulation.None
 })
 export class LayoutComponent implements OnInit, OnDestroy {
   sidebarOpen = false;
-  isAdmin = false; // Se sincroniza desde el almacenamiento cuando la vista inicia
+  isAdmin = false;
+  isDriver = false;
   isDarkMode = false;
   private themeSubscription?: Subscription;
+  private userSubscription?: Subscription;
 
   constructor(
     private router: Router,
-    private themeService: ThemeService
-  ) {}
+    private themeService: ThemeService,
+    private authService: AuthService
+  ) { }
 
   ngOnInit(): void {
-    this.syncAdminStatus();
+    // Suscribirse al estado del usuario
+    this.userSubscription = this.authService.currentUser$.subscribe(user => {
+      this.isAdmin = user?.role === 'admin';
+      this.isDriver = user?.role === 'driver';
+    });
+
     this.isDarkMode = this.themeService.isDarkMode();
     this.themeSubscription = this.themeService.theme$.subscribe(theme => {
       this.isDarkMode = theme === 'dark';
@@ -34,6 +44,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.themeSubscription) {
       this.themeSubscription.unsubscribe();
+    }
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
     }
   }
 
@@ -51,21 +64,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   getCurrentTime(): string {
     return new Date().toLocaleTimeString();
-  }
-
-  private syncAdminStatus() {
-    try {
-      const storage = typeof window !== 'undefined' ? window.sessionStorage : undefined;
-      if (!storage) {
-        this.isAdmin = false;
-        return;
-      }
-      const storedRole = storage.getItem('userRole');
-      const isLoggedIn = storage.getItem('isLoggedIn') === 'true';
-      this.isAdmin = isLoggedIn && storedRole === 'admin';
-    } catch {
-      this.isAdmin = false;
-    }
   }
 }
 

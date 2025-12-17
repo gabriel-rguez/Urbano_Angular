@@ -15,7 +15,7 @@
           <span class="stat-change positive">+2 esta semana</span>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-user-tie"></i>
@@ -26,7 +26,7 @@
           <span class="stat-change positive">+1 esta semana</span>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-route"></i>
@@ -37,7 +37,7 @@
           <span class="stat-change neutral">Sin cambios</span>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-map-marker-alt"></i>
@@ -51,18 +51,14 @@
     </div>
   </section>
 
+
   <!-- Dashboard Content -->
   <section class="dashboard-content">
     <div class="dashboard-card">
       <div class="card-header">
         <h3><i class="fas fa-map-marked-alt"></i> Mapa en Tiempo Real</h3>
         <div class="map-actions">
-          <button
-            type="button"
-            class="btn-ghost"
-            (click)="refreshData()"
-            [disabled]="isRefreshing"
-          >
+          <button type="button" class="btn-ghost" (click)="refreshData()" [disabled]="isRefreshing">
             <i class="fas fa-sync-alt" [ngClass]="{ 'fa-spin': isRefreshing }"></i>
             {{ isRefreshing ? 'Actualizando...' : 'Actualizar' }}
           </button>

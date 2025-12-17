@@ -26,15 +26,16 @@
 
 .sidebar {
   width: 260px;
-  background: #0b0b0b;
-  color: #fefefe;
+  background: var(--sidebar-background);
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   padding: 32px 24px;
   border-top-right-radius: 24px;
   border-bottom-right-radius: 24px;
-  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.35);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease, opacity 0.4s ease !important;
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.05);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease, opacity 0.4s ease, background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
   position: fixed;
   top: 0;
   left: 0;
@@ -76,6 +77,7 @@
     transform: translateX(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -91,6 +93,7 @@
     opacity: 0;
     transform: translateY(-15px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -113,7 +116,7 @@
 
 .sidebar-header p {
   margin: 4px 0 24px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--sidebar-text-muted);
 }
 
 .nav-menu {
@@ -131,19 +134,40 @@
   animation: fadeInSlide 0.5s ease-out backwards;
 }
 
-.nav-item:nth-child(1) { animation-delay: 0.1s; }
-.nav-item:nth-child(2) { animation-delay: 0.15s; }
-.nav-item:nth-child(3) { animation-delay: 0.2s; }
-.nav-item:nth-child(4) { animation-delay: 0.25s; }
-.nav-item:nth-child(5) { animation-delay: 0.3s; }
-.nav-item:nth-child(6) { animation-delay: 0.35s; }
-.nav-item:nth-child(7) { animation-delay: 0.4s; }
+.nav-item:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.nav-item:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.nav-item:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.nav-item:nth-child(4) {
+  animation-delay: 0.25s;
+}
+
+.nav-item:nth-child(5) {
+  animation-delay: 0.3s;
+}
+
+.nav-item:nth-child(6) {
+  animation-delay: 0.35s;
+}
+
+.nav-item:nth-child(7) {
+  animation-delay: 0.4s;
+}
 
 @keyframes fadeInSlide {
   from {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -155,12 +179,13 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--sidebar-text);
   text-decoration: none;
   font-weight: 500;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  opacity: 0.9;
 }
 
 .nav-link::before {
@@ -190,26 +215,36 @@
 
 .nav-item.active .nav-link,
 .nav-link:hover {
+  background: rgba(250, 204, 21, 0.15) !important;
+  color: #d97706 !important;
+  /* Darker yellow/orange for better contrast on light, looks ok on dark */
+  transform: translateX(8px) !important;
+  box-shadow: none !important;
+  /* Remove heavy shadow */
+  border-radius: 12px;
+}
+
+:host-context(.dark-theme) .nav-item.active .nav-link,
+:host-context(.dark-theme) .nav-link:hover {
   background: rgba(250, 204, 21, 0.25) !important;
   color: #facc15 !important;
-  transform: translateX(8px) !important;
-  box-shadow: -4px 0 12px rgba(250, 204, 21, 0.2) !important;
 }
 
 .nav-item.active .nav-link i,
 .nav-link:hover i {
   transform: scale(1.2);
-  color: #facc15;
+  color: currentColor;
+  /* Inherit from parent */
 }
 
 .main-content {
   flex: 1;
   margin-left: 0;
   padding: 32px 32px 32px 32px;
-  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
-              padding 0.4s ease,
-              filter 0.4s ease,
-              background-color 0.3s ease;
+  transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.4s ease,
+    filter 0.4s ease,
+    background-color 0.3s ease;
   width: 100%;
   box-sizing: border-box;
   background-color: #f7f7f7;
@@ -238,6 +273,7 @@
   from {
     opacity: 0.8;
   }
+
   to {
     opacity: 1;
   }
@@ -293,6 +329,7 @@
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -591,13 +628,11 @@
 .road-line {
   flex: 1;
   height: 100%;
-  background: repeating-linear-gradient(
-    to right,
-    #facc15 0px,
-    #facc15 8px,
-    transparent 8px,
-    transparent 16px
-  );
+  background: repeating-linear-gradient(to right,
+      #facc15 0px,
+      #facc15 8px,
+      transparent 8px,
+      transparent 16px);
   min-width: 16px;
 }
 
@@ -605,6 +640,7 @@
   from {
     transform: translateY(-50%) translateX(0);
   }
+
   to {
     transform: translateY(-50%) translateX(-16px);
   }
@@ -652,15 +688,20 @@
 }
 
 @keyframes plantSway {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: rotate(-5deg) scale(1);
   }
+
   25% {
     transform: rotate(3deg) scale(1.08);
   }
+
   50% {
     transform: rotate(5deg) scale(1);
   }
+
   75% {
     transform: rotate(-3deg) scale(1.08);
   }
@@ -676,12 +717,15 @@
     left: -30px;
     transform: translateX(-50%);
   }
+
   5% {
     transform: translateX(-50%);
   }
+
   95% {
     transform: translateX(-50%);
   }
+
   100% {
     left: calc(100% + 20px);
     transform: translateX(-50%);
@@ -734,8 +778,13 @@
 }
 
 @keyframes sunRotate {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to { transform: translate(-50%, -50%) rotate(360deg); }
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 /* Luna */
@@ -770,7 +819,7 @@
   height: 100%;
   background: radial-gradient(circle at 30% 30%, #E8E8E8 0%, #C0C0C0 100%);
   border-radius: 50%;
-  box-shadow: 
+  box-shadow:
     0 0 15px rgba(255, 255, 255, 0.4),
     inset -8px -8px 0 rgba(200, 200, 200, 0.3),
     inset 5px 5px 0 rgba(255, 255, 255, 0.2);
@@ -879,8 +928,17 @@
 }
 
 @keyframes twinkle {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 .sr-only {
@@ -912,10 +970,12 @@
     opacity: 0.8;
     transform: scale(0.9);
   }
+
   70% {
     opacity: 0;
     transform: scale(1.4);
   }
+
   100% {
     opacity: 0;
   }
@@ -1030,4 +1090,3 @@
     height: 30%;
   }
 }
-

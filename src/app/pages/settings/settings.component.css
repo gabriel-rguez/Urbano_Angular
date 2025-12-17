@@ -11,7 +11,6 @@
 .btn-change-password,
 .btn-logout {
   padding: 12px 24px;
-  border: 2px solid transparent;
   border-radius: 999px;
   font-size: 16px;
   font-weight: 600;
@@ -21,52 +20,11 @@
   align-items: center;
   gap: 8px;
   text-decoration: none;
+  border: 2px solid transparent;
+  /* Placeholder to match border width of globals */
 }
 
-.btn-admin {
-  background: #007bff;
-  color: white;
-}
-
-.btn-admin:hover {
-  background: #0056b3;
-}
-
-.btn-change-password {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-change-password:hover {
-  background: #5a6268;
-}
-
-.btn-logout {
-  background: #dc3545;
-  color: white;
-.btn-logout:hover {
-  background: #c82333;
-}
-
-/* Estilos de modo oscuro para los tres botones de configuración */
-:host-context(.dark-theme) .settings-buttons .btn-admin,
-:host-context(.dark-theme) .settings-buttons .btn-change-password,
-:host-context(.dark-theme) .settings-buttons .btn-logout {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 70%) !important;
-  color: #facc15 !important;
-  border: 2px solid rgba(250, 204, 21, 0.7) !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
-}
-
-:host-context(.dark-theme) .settings-buttons .btn-admin:hover,
-:host-context(.dark-theme) .settings-buttons .btn-change-password:hover,
-:host-context(.dark-theme) .settings-buttons .btn-logout:hover {
-  background: linear-gradient(135deg, #facc15 0%, #f97316 80%) !important;
-  color: #0f172a !important;
-  border-color: transparent !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8) !important;
-  transform: translateY(-2px);
-}
+/* Colors are handled by global styles.css under .settings-buttons */
 
 /* Modal Styles */
 .modal-overlay {
@@ -87,13 +45,14 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-background);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
@@ -101,6 +60,7 @@
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   animation: slideUp 0.3s ease;
+  border: 1px solid var(--card-border);
 }
 
 @keyframes slideUp {
@@ -108,6 +68,7 @@
     transform: translateY(30px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -119,12 +80,12 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--card-border);
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #333;
+  color: var(--text-color);
   font-size: 20px;
   display: flex;
   align-items: center;
@@ -135,7 +96,7 @@
   background: none;
   border: none;
   font-size: 24px;
-  color: #999;
+  color: var(--muted-text);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -148,8 +109,8 @@
 }
 
 .modal-close:hover {
-  background: #f5f5f5;
-  color: #333;
+  background: var(--surface-muted);
+  color: var(--text-color);
 }
 
 .modal-body {
@@ -163,7 +124,7 @@
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--text-color);
   font-weight: 600;
   font-size: 14px;
 }
@@ -171,16 +132,18 @@
 .form-group input {
   width: 100%;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--card-border);
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 0.3s ease;
   box-sizing: border-box;
+  background: var(--input-background);
+  color: var(--text-color);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #FFC107;
 }
 
 .message {
@@ -191,21 +154,21 @@
 }
 
 .message.error {
-  background: #fee;
-  color: #c33;
-  border: 1px solid #fcc;
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.2);
 }
 
 .message.success {
-  background: #efe;
-  color: #3c3;
-  border: 1px solid #cfc;
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+  border: 1px solid rgba(40, 167, 69, 0.2);
 }
 
 .message.info {
-  background: #eef;
-  color: #33c;
-  border: 1px solid #ccf;
+  background: rgba(23, 162, 184, 0.1);
+  color: #17a2b8;
+  border: 1px solid rgba(23, 162, 184, 0.2);
 }
 
 .modal-actions {
@@ -215,35 +178,7 @@
   margin-top: 24px;
 }
 
-.btn-submit,
-.btn-cancel {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-submit {
-  background: #007bff;
-  color: white;
-}
-
-.btn-submit:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-submit:disabled,
-.btn-cancel:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+/* Use global .btn-submit and .btn-cancel classes, removing local overrides */
 .btn-submit.loading {
   position: relative;
   color: transparent;
@@ -258,7 +193,7 @@
   left: 50%;
   margin-left: -8px;
   margin-top: -8px;
-  border: 2px solid white;
+  border: 2px solid #facc15;
   border-radius: 50%;
   border-top-color: transparent;
   animation: spin 0.6s linear infinite;
@@ -268,15 +203,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.btn-cancel {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background: #e0e0e0;
 }
 
 /* Responsive */
@@ -305,6 +231,4 @@
     width: 100%;
     justify-content: center;
   }
-}
-
 }
