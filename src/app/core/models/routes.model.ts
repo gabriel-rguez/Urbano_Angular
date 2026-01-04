@@ -32,3 +32,13 @@ export interface Vehicle {
   gpsActivo?: boolean; // Indica si el GPS está activo y el vehículo es rastreable
 }
 
+export interface ChargingStation {
+  id: number;
+  nombre: string;
+  lat: number;
+  lng: number;
+  estado: 'Disponible' | 'Ocupada' | 'Mantenimiento';
+  tipo: 'Carga Rápida' | 'Intercambio de Batería' | 'Carga e Intercambio';
+  direccion?: string;
+}
+

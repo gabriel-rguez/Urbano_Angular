@@ -1,4 +1,35 @@
-# Historial de Cambios y Auditoría - Walkthrough
+# Historial de Cambios
+
+## [Fecha Actual] - Integración de Estaciones y Correcciones de Seguridad
+
+### Nuevas Características (Refactorizado)
+- **Planificación Unificada**: Se integró la gestión de **Estaciones de Carga** dentro de la página de **Planificación** (antes Rutas).
+  - Ahora se utiliza un sistema de pestañas para alternar entre "Rutas" y "Estaciones", simplificando la navegación.
+  - Los administradores pueden crear, editar y eliminar estaciones directamente desde el mismo mapa de planificación.
+- **Acceso a Monitoreo Restringido**: Se restringió el acceso a la página de **Monitoreo** (`/monitoring`) exclusivamente para administradores.
+- **Mapa de Conductores**: Se integraron las **Estaciones de Carga** en el mapa del **Dashboard (Home)** para que los conductores puedan visualizarlas sin necesidad de acceder a la herramienta de monitoreo completa.
+- **Sistema de Notificaciones**:
+  - Se implementó un **indicador visual (badge)** en el menú lateral para avisar de nuevos mensajes de soporte.
+  - Visible tanto para **Administradores** (en "Soporte") como para **Conductores** (en "Reportar Avería").
+  - El contador se actualiza en tiempo real según los mensajes no leídos.
+- **Estaciones de Carga Mejoradas**:
+  - Se eliminó la selección de tipo de estación, unificando todas como **"Carga e Intercambio"**.
+  - Se implementó la **geocodificación inversa automática**: Al crear una estación, el sistema obtendrá automáticamente la dirección basándose en las coordenadas del mapa.
+  - Se actualizó el modelo de datos para incluir el campo de dirección y el nuevo tipo unificado.
+- **Acceso a Monitoreo Restringido**: Se restringió el acceso a la página de **Monitoreo** (`/monitoring`) exclusivamente para administradores.
+- **Mapa de Conductores**: Se integraron las **Estaciones de Carga** en el mapa del **Dashboard (Home)** para que los conductores puedan visualizarlas sin necesidad de acceder a la herramienta de monitoreo completa.
+- **AuthGuard Implementado**: Se creó e implementó `AuthGuard` para proteger todas las rutas sensibles.
+  - `admin`: Acceso total (Conductores, Vehículos, Planificación, Reportes, Soporte, Monitoreo).
+  - `driver`: Acceso limitado (Dashboard, Reporte de Problemas).
+- **Correcciones Técnicas**: Se solucionaron errores de tipado en `RutasComponent`, se eliminó el código obsoleto de estaciones y se mejoró el servicio de confirmación para soportar selectores.
+- **Limpieza de Código**: Se eliminó la página independiente de estaciones para reducir deuda técnica y redundancia.
+
+### UI/UX
+- **Barra Lateral Actualizada**: Se renombró "Rutas" a "Planificación" y se eliminó el enlace redundante a Estaciones.
+- **Diseño de Pestañas**: Nueva interfaz visual para cambiar modos de trabajo sin recargar la página.
+
+---
+ y Auditoría - Walkthrough
 
 Hemos implementado una nueva funcionalidad completa para rastrear y visualizar todos los cambios importantes en la aplicación (Conductores, Vehículos, Rutas y Paradas).
 
@@ -27,7 +58,15 @@ El sistema registra automáticamente los cambios cuando se realizan acciones en 
 
 #### Rutas y Mapa
 - **Rutas**: Creación, renombrado y eliminación de rutas.
+- **Rutas**: Creación, renombrado y eliminación de rutas.
 - **Paradas**: Agregar, mover (editar) o borrar paradas.
+- **Estaciones de Carga**: Nuevas operaciones de gestión de infraestructura.
+
+### 4. Estaciones de Carga (Nueva Funcionalidad)
+Se ha añadido un sistema completo para gestionar la infraestructura de carga:
+- **Vista Admin**: Nueva página "Estaciones" donde los administradores pueden añadir estaciones tocando en el mapa, editarlas o eliminarlas.
+- **Vista Conductor**: Los conductores ahora tienen acceso al mapa de "Monitoreo" donde pueden visualizar la ubicación y estado de las estaciones (Disponible, Ocupada, Mantenimiento).
+- **Tipos soportados**: Carga Rápida (Rayo) e Intercambio de Batería (Batería).
 
 ### 3. Página de Historial
 Nueva pantalla accesible desde el menú lateral "**Historial**".

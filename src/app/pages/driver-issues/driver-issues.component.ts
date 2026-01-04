@@ -35,6 +35,8 @@ export class DriverIssuesComponent implements OnInit, AfterViewChecked {
         // Suscribirse solo a los mensajes de este conductor
         this.chatService.getMessagesForConversation(this.currentUser.username).subscribe(msgs => {
             this.messages = msgs;
+            // Marcar leído para driver
+            this.chatService.markAsRead(this.currentUser!.username, 'driver');
             setTimeout(() => this.scrollToBottom(), 100);
         });
     }

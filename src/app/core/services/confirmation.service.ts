@@ -9,6 +9,7 @@ export interface InputField {
     value?: string;
     placeholder?: string;
     required?: boolean;
+    options?: { value: string; label: string; }[];
 }
 
 export interface ConfirmationOptions {

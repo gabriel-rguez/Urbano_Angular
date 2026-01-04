@@ -15,6 +15,7 @@
       </li>
 
       <!-- Monitoreo en Tiempo Real (Alta Prioridad) -->
+      <!-- Monitoreo en Tiempo Real (Alta Prioridad) -->
       <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('monitoring')">
         <a routerLink="/monitoring" class="nav-link">
           <i class="fas fa-map-marked-alt"></i>
@@ -26,8 +27,8 @@
       <ng-container *ngIf="isAdmin">
         <li class="nav-item" [class.active]="isActive('rutas')">
           <a routerLink="/rutas" class="nav-link">
-            <i class="fas fa-route"></i>
-            <span>Rutas</span>
+            <i class="fas fa-map-signs"></i> <!-- Changed icon to be more generic/planning -->
+            <span>Planificación</span>
           </a>
         </li>
         <li class="nav-item" [class.active]="isActive('vehiculos')">
@@ -56,6 +57,9 @@
         <a routerLink="/admin-support" class="nav-link">
           <i class="fas fa-headset"></i>
           <span>Soporte</span>
+          <span class="badge-notification" *ngIf="(unreadCount$ | async) as count">
+            {{ count }}
+          </span>
         </a>
       </li>
 
@@ -64,6 +68,9 @@
         <a routerLink="/driver-issues" class="nav-link">
           <i class="fas fa-exclamation-triangle"></i>
           <span>Reportar Avería</span>
+          <span class="badge-notification" *ngIf="(unreadCount$ | async) as count">
+            {{ count }}
+          </span>
         </a>
       </li>
 

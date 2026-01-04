@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../shared/layout/layout.component';
 import * as L from 'leaflet';
-import { PlannedRoute, RouteStop, Vehicle } from '../../core/models/routes.model';
+import { PlannedRoute, RouteStop, Vehicle, ChargingStation } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ConfirmationService } from '../../core/services/confirmation.service';
@@ -31,46 +31,16 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
   private activeRouteNodes: L.CircleMarker[] = [];
   private vehicleMarkers: L.Marker[] = [];
   private routeTerminalMarkers: L.Marker[] = [];
+  private stationMarkers: L.Marker[] = []; // New
   private mapClickHandler?: (event: L.LeafletMouseEvent) => void;
   private themeSubscription?: Subscription;
 
-  routes: PlannedRoute[] = [
-    {
-      id: 1,
-      nombre: 'Ruta Centro',
-      origen: 'Parque Serafín',
-      destino: 'Plaza Mayor',
-      estado: 'Activa',
-      polyline: [
-        [21.9667, -79.4333],
-        [21.9680, -79.4310],
-        [21.9700, -79.4280]
-      ],
-      color: '#efb810',
-      paradas: [
-        { id: 11, nombre: 'Parada 1', lat: 21.9670, lng: -79.4320 },
-        { id: 12, nombre: 'Parada 2', lat: 21.9685, lng: -79.4300 },
-        { id: 13, nombre: 'Parada 3', lat: 21.9695, lng: -79.4290 }
-      ]
-    },
-    {
-      id: 2,
-      nombre: 'Ruta Norte',
-      origen: 'Avenida Libertad',
-      destino: 'Estación Central',
-      estado: 'Activa',
-      polyline: [
-        [21.9650, -79.4350],
-        [21.9640, -79.4370],
-        [21.9630, -79.4390]
-      ],
-      color: '#111111',
-      paradas: [
-        { id: 21, nombre: 'Norte 1', lat: 21.9645, lng: -79.4360 },
-        { id: 22, nombre: 'Norte 2', lat: 21.9635, lng: -79.4380 }
-      ]
-    }
-  ];
+  routes: PlannedRoute[] = [];
+  stations: ChargingStation[] = []; // New
+
+  activeTab: 'routes' | 'stations' = 'routes'; // Sidebar tab state
+  isAddingStation = false; // Mode flag
+  tempStationMarker: L.Marker | null = null;
 
   vehicles: Vehicle[] = [
     // R-1: Posicionado sobre la Ruta Centro (entre punto 1 y 2 del polyline)
@@ -141,17 +111,49 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit(): void {
     this.setupLeafletIcons();
+    this.setupLeafletIcons();
     const sharedRoutes = this.routesService.getCurrentRoutes();
     const sharedVehicles = this.routesService.getCurrentVehicles();
+    const sharedStations = this.routesService.getCurrentStations();
+
     if (sharedRoutes.length) {
       this.routes = sharedRoutes.map(route => ({
         ...route,
         polyline: route.polyline.map(point => [point[0], point[1]] as [number, number]),
         paradas: route.paradas.map(stop => ({ ...stop }))
       }));
+    } else {
+      // Fallback demo data if empty
+      this.routes = [
+        {
+          id: 1,
+          nombre: 'Ruta Centro',
+          origen: 'Parque Serafín',
+          destino: 'Plaza Mayor',
+          estado: 'Activa',
+          polyline: [[21.9667, -79.4333], [21.9680, -79.4310], [21.9700, -79.4280]],
+          color: '#efb810',
+          paradas: [{ id: 11, nombre: 'Parada 1', lat: 21.9670, lng: -79.4320 }, { id: 12, nombre: 'Parada 2', lat: 21.9685, lng: -79.4300 }, { id: 13, nombre: 'Parada 3', lat: 21.9695, lng: -79.4290 }]
+        },
+        {
+          id: 2,
+          nombre: 'Ruta Norte',
+          origen: 'Avenida Libertad',
+          destino: 'Estación Central',
+          estado: 'Activa',
+          polyline: [[21.9650, -79.4350], [21.9640, -79.4370], [21.9630, -79.4390]],
+          color: '#111111',
+          paradas: [{ id: 21, nombre: 'Norte 1', lat: 21.9645, lng: -79.4360 }, { id: 22, nombre: 'Norte 2', lat: 21.9635, lng: -79.4380 }]
+        }
+      ];
     }
+
     if (sharedVehicles.length) {
       this.vehicles = sharedVehicles.map(vehicle => ({ ...vehicle }));
+    }
+
+    if (sharedStations.length) {
+      this.stations = sharedStations.map(s => ({ ...s }));
     }
     this.saveToHistory();
     this.syncSharedState();
@@ -484,7 +486,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.refreshError = '';
     this.isRefreshing = true;
     try {
-      const { routes, vehicles } = await this.routesService.refreshData();
+      const { routes, vehicles, stations } = await this.routesService.refreshData();
       this.routes = routes.map(route => ({
         ...route,
         polyline: route.polyline.map(point => [point[0], point[1]] as [number, number]),
@@ -492,7 +494,10 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       }));
       this.vehicles = vehicles.map(vehicle => ({ ...vehicle }));
       this.renderSelectedRoute();
+      this.stations = stations.map((s: ChargingStation) => ({ ...s }));
+      this.renderSelectedRoute();
       this.renderVehicles();
+      this.renderStations();
     } catch (error) {
       console.error('No se pudo actualizar el mapa de rutas', error);
       this.refreshError = 'No se pudo actualizar el mapa. Inténtalo nuevamente.';
@@ -555,6 +560,156 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     this.mapClickHandler = (event: L.LeafletMouseEvent) => this.handleMapClick(event);
     this.map.on('click', this.mapClickHandler);
     this.renderVehicles();
+    this.renderStations();
+  }
+
+  // Station Logic
+
+  toggleStationMode() {
+    this.isAddingStation = !this.isAddingStation;
+    this.pendingStopMessage = this.isAddingStation
+      ? 'Modo creación: Toca el mapa para ubicar la nueva estación.'
+      : '';
+  }
+
+  async createStationAt(latlng: L.LatLng) {
+    // Obtener dirección
+    let direccionFija = '';
+    try {
+      const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}&zoom=18&addressdetails=1`);
+      const data = await resp.json();
+      direccionFija = data.display_name || 'Dirección desconocida';
+    } catch {
+      direccionFija = 'Error recuperando dirección';
+    }
+
+    const result = await this.confirmationService.prompt({
+      title: 'Nueva Estación de Carga',
+      message: 'Ingrese los detalles de la estación',
+      confirmText: 'Crear',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre', required: true },
+        { name: 'direccion', label: 'Dirección', value: direccionFija, type: 'textarea' },
+        {
+          name: 'estado', label: 'Estado', type: 'select', options: [
+            { value: 'Disponible', label: 'Disponible' },
+            { value: 'Ocupada', label: 'Ocupada' },
+            { value: 'Mantenimiento', label: 'Mantenimiento' }
+          ], value: 'Disponible'
+        }
+      ]
+    });
+
+    this.pendingStopMessage = '';
+
+    if (result) {
+      const newStation: ChargingStation = {
+        id: Date.now(),
+        nombre: result['nombre'],
+        lat: latlng.lat,
+        lng: latlng.lng,
+        tipo: 'Carga e Intercambio',
+        direccion: result['direccion'],
+        estado: result['estado'] as 'Disponible' | 'Ocupada' | 'Mantenimiento'
+      };
+
+      this.stations.push(newStation);
+      this.routesService.setStations(this.stations); // Push to service
+      this.renderStations();
+      this.toggleStationMode(); // Exit add mode
+      this.auditService.logAction('CREAR', 'MAPA', `Estación creada: ${newStation.nombre}`);
+    }
+  }
+
+  async editStation(station: ChargingStation) {
+    const result = await this.confirmationService.prompt({
+      title: 'Editar Estación',
+      message: 'Modificar detalles',
+      confirmText: 'Guardar',
+      type: 'primary',
+      inputs: [
+        { name: 'nombre', label: 'Nombre', value: station.nombre, required: true },
+        { name: 'direccion', label: 'Dirección', value: station.direccion || '', type: 'textarea' },
+        {
+          name: 'estado', label: 'Estado', type: 'select', options: [
+            { value: 'Disponible', label: 'Disponible' },
+            { value: 'Ocupada', label: 'Ocupada' },
+            { value: 'Mantenimiento', label: 'Mantenimiento' }
+          ], value: station.estado
+        }
+      ]
+    });
+
+    if (result) {
+      const index = this.stations.findIndex(s => s.id === station.id);
+      if (index !== -1) {
+        // preserve type (though it will likely be 'Carga e Intercambio' for new ones)
+        // or force update it if we want all to be hybrid
+        this.stations[index] = {
+          ...this.stations[index],
+          nombre: result['nombre'],
+          direccion: result['direccion'],
+          estado: result['estado'] as any,
+          tipo: 'Carga e Intercambio'
+        };
+        this.routesService.setStations(this.stations);
+        this.renderStations();
+        this.auditService.logAction('ACTUALIZAR', 'MAPA', `Estación actualizada: ${result['nombre']}`);
+      }
+    }
+  }
+
+  async deleteStation(station: ChargingStation) {
+    const confirm = await this.confirmationService.confirm({
+      title: 'Eliminar Estación',
+      message: `¿Eliminar ${station.nombre}?`,
+      type: 'danger'
+    });
+
+    if (confirm) {
+      this.stations = this.stations.filter(s => s.id !== station.id);
+      this.routesService.setStations(this.stations);
+      this.renderStations();
+      this.auditService.logAction('ELIMINAR', 'MAPA', `Estación eliminada: ${station.nombre}`);
+    }
+  }
+
+  renderStations() {
+    if (!this.map) return;
+    this.stationMarkers.forEach(m => m.remove());
+    this.stationMarkers = [];
+
+    this.stations.forEach(station => {
+      // Logic for new type "Carga e Intercambio"
+      let iconClass = 'fa-charging-station';
+      if (station.tipo === 'Carga Rápida') iconClass = 'fa-bolt';
+      else if (station.tipo === 'Intercambio de Batería') iconClass = 'fa-battery-full';
+
+      const color = station.estado === 'Disponible' ? '#22c55e' : (station.estado === 'Ocupada' ? '#ef4444' : '#eab308');
+
+      const icon = L.divIcon({
+        className: 'station-icon',
+        html: `
+                <div style="background: ${color}; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+                  <i class="fas ${iconClass}" style="color: white; font-size: 16px;"></i>
+                </div>
+            `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+
+      const marker = L.marker([station.lat, station.lng], { icon }).addTo(this.map!);
+      marker.on('click', () => this.editStation(station));
+
+      let tooltipText = station.nombre;
+      if (station.direccion) {
+        tooltipText += `<br><small>📍 ${station.direccion}</small>`;
+      }
+      marker.bindTooltip(tooltipText);
+
+      this.stationMarkers.push(marker);
+    });
   }
 
   private updateMapTheme() {
@@ -632,6 +787,8 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (this.isAddingStop) {
       this.createStopAt(event.latlng); // Ya es async, no necesita await aquí
+    } else if (this.isAddingStation && this.activeTab === 'stations') {
+      this.createStationAt(event.latlng);
     } else if (this.isDrawingRoute) {
       this.addRoutePoint(event.latlng);
     } else if (this.extendingStart || this.extendingEnd) {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/layout/layout.component';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
-import { PlannedRoute, RouteStatus, Vehicle } from '../../core/models/routes.model';
+import { PlannedRoute, RouteStatus, Vehicle, ChargingStation } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
 
@@ -26,8 +26,10 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
   private terminalMarkers: L.Marker[] = [];
   private stopMarkers: L.Marker[] = [];
   private vehicleMarkers: L.Marker[] = [];
+  private stationMarkers: L.Marker[] = []; // New
 
   plannedRoutes: PlannedRoute[] = [];
+  stations: ChargingStation[] = []; // Typed correctly
   vehicles: Vehicle[] = [];
   vehicleSlideIndex = 0;
   routeSlideIndex = 0;
@@ -74,7 +76,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private routesService: RoutesService,
     private themeService: ThemeService
-  ) {}
+  ) { }
 
   ngOnInit() {
     // Configurar iconos de Leaflet
@@ -89,7 +91,12 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
       this.clampVehicleSlide();
       this.renderNetwork();
     });
-    
+    // Subscribe to stations
+    this.routesService.stations$.subscribe(stations => {
+      this.stations = stations;
+      this.renderNetwork();
+    });
+
     // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
@@ -153,7 +160,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
       // Asegurar actualización final de iconos
       this.updateStopIcons();
     });
-    
+
     // Ajustar tamaño cuando cambia el contenedor (mantener centro y zoom)
     this.map.on('resize', () => {
       const currentCenter = this.map!.getCenter();
@@ -192,7 +199,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Determinar qué tiles usar según el tema
     const isDarkMode = this.themeService.isDarkMode();
-    
+
     if (isDarkMode) {
       // Usar OpenStreetMap con estilo oscuro que preserva colores naturales
       this.tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -200,7 +207,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         maxZoom: 19,
         className: 'dark-map-tiles'
       });
-      
+
       // Agregar clase al contenedor del mapa para aplicar filtros
       const mapContainer = this.map.getContainer();
       mapContainer.classList.add('dark-map-container');
@@ -210,7 +217,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
       });
-      
+
       // Remover clase del contenedor del mapa
       const mapContainer = this.map.getContainer();
       mapContainer.classList.remove('dark-map-container');
@@ -258,13 +265,44 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     this.terminalMarkers = [];
     this.vehicleMarkers.forEach(marker => marker.remove());
     this.vehicleMarkers = [];
+    this.stationMarkers.forEach(marker => marker.remove());
+    this.stationMarkers = [];
+
+    // Render Stations
+    this.stations.forEach(station => {
+      let iconClass = 'fa-charging-station';
+      if (station.tipo === 'Carga Rápida') iconClass = 'fa-bolt';
+      else if (station.tipo === 'Intercambio de Batería') iconClass = 'fa-battery-full';
+
+      const color = station.estado === 'Disponible' ? '#22c55e' : (station.estado === 'Ocupada' ? '#ef4444' : '#eab308');
+
+      const icon = L.divIcon({
+        className: 'station-icon-monitor',
+        html: `
+              <div style="background: ${color}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                <i class="fas ${iconClass}" style="color: white; font-size: 14px;"></i>
+              </div>
+            `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      const marker = L.marker([station.lat, station.lng], { icon }).addTo(this.map!);
+      marker.bindPopup(`
+            <strong>${station.nombre}</strong><br>
+            <small>${station.tipo}</small><br>
+            ${station.direccion ? `<small>📍 ${station.direccion}</small><br>` : ''}
+            <span style="color: ${color}; font-weight: bold;">● ${station.estado}</span>
+        `);
+      this.stationMarkers.push(marker);
+    });
 
     this.plannedRoutes.forEach(route => {
       if (!route.polyline.length) {
         return;
       }
       const routeColor = route.color || '#efb810';
-      
+
       // Crear efecto de relieve: línea de sombra más gruesa y oscura debajo
       const shadowLayer = L.polyline(route.polyline, {
         color: '#000000',
@@ -273,7 +311,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         className: 'route-shadow'
       }).addTo(this.map!);
       this.routeLayers.push(shadowLayer);
-      
+
       // Línea principal con borde blanco para contraste
       const borderLayer = L.polyline(route.polyline, {
         color: '#ffffff',
@@ -282,7 +320,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         className: 'route-border'
       }).addTo(this.map!);
       this.routeLayers.push(borderLayer);
-      
+
       // Línea principal de la ruta
       const polyline = L.polyline(route.polyline, {
         color: routeColor,
@@ -323,7 +361,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         const iconSize = 28; // Tamaño fijo para mejor rendimiento
         const centerPoint = iconSize / 2; // Punto central exacto
         const routeColor = route.color || '#efb810';
-        
+
         // Crear icono circular con el color de la ruta y el número de parada
         const icon = L.divIcon({
           className: 'stop-marker-container',
@@ -339,12 +377,12 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
           iconAnchor: [centerPoint, centerPoint], // Anclaje siempre en el CENTRO exacto
           popupAnchor: [0, -centerPoint] // Ajuste del popup
         });
-        
+
         const marker = L.marker([stop.lat, stop.lng], {
           icon: icon,
           draggable: false
         }).addTo(this.map!);
-        
+
         // Construir popup con dirección si está disponible
         let popupText = `<strong>${stop.nombre}</strong>`;
         if (stop.direccion) {
@@ -352,7 +390,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         } else if (stop.descripcion) {
           popupText += `<br>${stop.descripcion}`;
         }
-        
+
         marker.bindPopup(popupText);
         this.stopMarkers.push(marker);
       });
@@ -364,7 +402,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
       // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
       const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
       const centerPoint = iconSize / 2;
-      
+
       const circleColor = isActive ? '#10b981' : '#6b7280';
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
@@ -380,7 +418,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         iconAnchor: [centerPoint, centerPoint],
         popupAnchor: [0, -centerPoint]
       });
-      
+
       const marker = L.marker([vehicle.lat, vehicle.lng], { icon }).addTo(this.map!);
       marker.bindPopup(`
         <div class="vehicle-popup">
@@ -401,7 +439,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     const stopPoint = L.latLng(stop.lat, stop.lng);
     // Distancia máxima permitida en grados (aproximadamente 100 metros)
     const MAX_DISTANCE = 0.001;
-    
+
     for (let i = 0; i < polyline.length - 1; i++) {
       const start = L.latLng(polyline[i]);
       const end = L.latLng(polyline[i + 1]);
@@ -456,7 +494,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         alert('El navegador no permitió activar pantalla completa.');
       });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
     // Actualizar el estado del scroll después de un pequeño delay
     setTimeout(() => {
@@ -531,7 +569,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     const iconSize = this.getIconSizeForZoom();
     const centerPoint = iconSize / 2; // Punto central exacto
-    
+
     this.stopMarkers.forEach(marker => {
       const newIcon = L.divIcon({
         className: 'stop-marker-container',

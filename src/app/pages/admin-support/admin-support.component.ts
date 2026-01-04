@@ -90,7 +90,7 @@ export class AdminSupportComponent implements OnInit, AfterViewChecked {
             this.activeMessages = msgs;
             // Marcar como leídos
             if (this.selectedConversation && this.selectedConversation.unreadCount > 0) {
-                this.chatService.markAsRead(convId);
+                this.chatService.markAsRead(convId, 'admin');
             }
             // Scroll tras carga
             setTimeout(() => this.scrollToBottom(), 100);

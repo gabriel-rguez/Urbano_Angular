@@ -166,14 +166,38 @@ export class ChatService {
         );
     }
 
-    markAsRead(conversationId: string) {
+    markAsRead(conversationId: string, userRole: 'admin' | 'driver') {
         const currentMessages = this.messagesSubject.value;
         const updatedMessages = currentMessages.map(msg => {
-            if (msg.conversationId === conversationId && msg.role === 'driver' && !msg.read) {
+            // Si soy admin, marco como leídos los mensajes de 'driver'
+            if (userRole === 'admin' && msg.conversationId === conversationId && msg.role === 'driver' && !msg.read) {
+                return { ...msg, read: true };
+            }
+            // Si soy driver, marco como leídos los mensajes de 'admin'
+            if (userRole === 'driver' && msg.conversationId === conversationId && msg.role === 'admin' && !msg.read) {
                 return { ...msg, read: true };
             }
             return msg;
         });
         this.messagesSubject.next(updatedMessages);
+    }
+
+    getUnreadCount(): Observable<number> {
+        return this.messages$.pipe(
+            map(messages => {
+                const user = this.authService.getCurrentUser();
+                if (!user) return 0;
+
+                return messages.reduce((count, msg) => {
+                    if (user.role === 'admin') {
+                        // Admin cuenta mensajes de conductores no leídos
+                        return count + (msg.role === 'driver' && !msg.read ? 1 : 0);
+                    } else {
+                        // Driver cuenta mensajes de admin no leídos PARA ÉL
+                        return count + (msg.role === 'admin' && msg.conversationId === user.username && !msg.read ? 1 : 0); // Asumiendo username como ID
+                    }
+                }, 0);
+            })
+        );
     }
 }

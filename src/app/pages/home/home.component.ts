@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { RouterModule } from '@angular/router';
-import { PlannedRoute, Vehicle, RouteStop } from '../../core/models/routes.model';
+import { PlannedRoute, Vehicle, RouteStop, ChargingStation } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
 
@@ -28,9 +28,11 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
   private vehicleMarkers: L.Marker[] = [];
   private terminalMarkers: L.Marker[] = [];
   private stopMarkers: L.Marker[] = [];
+  private stationMarkers: L.Marker[] = [];
 
   routes: PlannedRoute[] = [];
   vehicles: Vehicle[] = [];
+  stations: ChargingStation[] = [];
 
   stats = {
     vehicles: 0,
@@ -61,6 +63,11 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     this.vehiclesSub = this.routesService.vehicles$.subscribe(vehicles => {
       this.vehicles = vehicles;
       this.stats.vehicles = vehicles.length;
+      this.stats.vehicles = vehicles.length;
+      this.renderNetwork();
+    });
+    this.routesService.stations$.subscribe(stations => {
+      this.stations = stations;
       this.renderNetwork();
     });
 
@@ -232,6 +239,37 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     this.vehicleMarkers = [];
     this.terminalMarkers = [];
     this.stopMarkers = [];
+    this.stationMarkers.forEach(marker => marker.remove());
+    this.stationMarkers = [];
+
+    // Render Stations
+    this.stations.forEach(station => {
+      let iconClass = 'fa-charging-station';
+      if (station.tipo === 'Carga Rápida') iconClass = 'fa-bolt';
+      else if (station.tipo === 'Intercambio de Batería') iconClass = 'fa-battery-full';
+
+      const color = station.estado === 'Disponible' ? '#22c55e' : (station.estado === 'Ocupada' ? '#ef4444' : '#eab308');
+
+      const icon = L.divIcon({
+        className: 'station-icon-home',
+        html: `
+              <div style="background: ${color}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                <i class="fas ${iconClass}" style="color: white; font-size: 11px;"></i>
+              </div>
+            `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      const marker = L.marker([station.lat, station.lng], { icon }).addTo(this.map!);
+      marker.bindPopup(`
+            <strong>${station.nombre}</strong><br>
+            <small>${station.tipo}</small><br>
+            ${station.direccion ? `<small>📍 ${station.direccion}</small><br>` : ''}
+            <span style="color: ${color}; font-weight: bold;">● ${station.estado}</span>
+        `);
+      this.stationMarkers.push(marker);
+    });
 
     this.routes.forEach(route => {
       if (!route.polyline.length) {

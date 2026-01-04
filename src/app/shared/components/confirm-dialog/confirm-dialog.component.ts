@@ -43,6 +43,13 @@ import { Subscription } from 'rxjs';
                      [required]="input.required || false"
                      class="form-control"
                      rows="3"></textarea>
+              <select *ngIf="input.type === 'select'"
+                     [id]="input.name" 
+                     [(ngModel)]="inputValues[input.name]"
+                     [required]="input.required || false"
+                     class="form-control">
+                <option *ngFor="let opt of input.options" [value]="opt.value">{{ opt.label }}</option>
+              </select>
             </div>
           </div>
         </div>

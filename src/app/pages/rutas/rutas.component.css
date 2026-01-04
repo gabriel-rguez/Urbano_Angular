@@ -74,7 +74,7 @@
   flex-wrap: wrap;
 }
 
-.map-header > div:first-child {
+.map-header>div:first-child {
   flex: 1;
   min-width: 200px;
 }
@@ -347,6 +347,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -423,7 +424,7 @@
   flex-wrap: wrap;
 }
 
-.table-header > div:first-child {
+.table-header>div:first-child {
   flex: 1;
   min-width: 200px;
 }
@@ -740,7 +741,7 @@
   margin-bottom: 1rem;
 }
 
-.panel-header > div:first-child {
+.panel-header>div:first-child {
   flex: 1;
   min-width: 200px;
 }
@@ -894,7 +895,7 @@
   background: rgba(250, 204, 21, 0.25);
 }
 
-.stops-list li > div:first-child {
+.stops-list li>div:first-child {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -997,9 +998,12 @@
 }
 
 @keyframes vehicle-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(16, 185, 129, 0.4) !important;
   }
+
   50% {
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(16, 185, 129, 0) !important;
   }
@@ -1080,7 +1084,7 @@
     align-items: stretch;
   }
 
-  .map-header > div:first-child {
+  .map-header>div:first-child {
     margin-bottom: 0.75rem;
   }
 
@@ -1135,7 +1139,7 @@
     align-items: stretch;
   }
 
-  .table-header > div:first-child {
+  .table-header>div:first-child {
     margin-bottom: 0.75rem;
   }
 
@@ -1184,7 +1188,7 @@
     align-items: stretch;
   }
 
-  .panel-header > div:first-child {
+  .panel-header>div:first-child {
     margin-bottom: 0.75rem;
   }
 
@@ -1199,7 +1203,7 @@
     gap: 0.75rem;
   }
 
-  .stops-list li > div:first-child {
+  .stops-list li>div:first-child {
     width: 100%;
   }
 
@@ -1219,6 +1223,7 @@
 
 /* Móviles muy pequeños */
 @media (max-width: 480px) {
+
   .map-section,
   .table-section {
     padding: 0.75rem;
@@ -1356,6 +1361,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1397,4 +1403,79 @@
 /* Transiciones suaves para modo oscuro */
 * {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ============================================
+   MODE SWITCHER PILL
+   ============================================ */
+.mode-switcher-pill {
+  display: flex;
+  background: var(--surface-muted);
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--routes-border);
+}
+
+.mode-switcher-pill button {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  color: var(--routes-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mode-switcher-pill button.active {
+  background: var(--card-background);
+  color: var(--routes-text);
+  box-shadow: 0 2px 4px var(--routes-shadow);
+  color: var(--primary-color);
+}
+
+.dark-theme .mode-switcher-pill button.active {
+  color: var(--primary-color);
+}
+
+/* ============================================
+   STATION STATUS BADGES
+   ============================================ */
+.status-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.status-badge.disponible {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-badge.ocupada {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-badge.mantenimiento {
+  background: rgba(234, 179, 8, 0.1);
+  color: #ca8a04;
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.text-yellow-500 {
+  color: #eab308;
+}
+
+.text-green-500 {
+  color: #22c55e;
 }
