@@ -10,18 +10,23 @@
       <div class="card-content">
         <p>Panel de configuración del sistema</p>
         <div class="settings-buttons">
-          <button type="button" class="btn-admin" (click)="testAdmin()">
-            <i class="fas fa-user-shield"></i>
-            <span>Prueba de Admin</span>
-          </button>
-          <button type="button" class="btn-change-password" (click)="changePassword()">
-            <i class="fas fa-key"></i>
-            <span>Cambiar Contraseña</span>
-          </button>
-          <button type="button" class="btn-logout" (click)="logout()">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Cerrar Sesión</span>
-          </button>
+          <ng-container *ngIf="!isLoggedIn">
+            <a routerLink="/login" class="btn-admin">
+              <i class="fas fa-user-shield"></i>
+              <span>Acceder como Administrador</span>
+            </a>
+          </ng-container>
+
+          <ng-container *ngIf="isLoggedIn">
+            <button type="button" class="btn-change-password" (click)="openChangePasswordModal()">
+              <i class="fas fa-key"></i>
+              <span>Cambiar Contraseña</span>
+            </button>
+            <button type="button" class="btn-logout" (click)="logout()">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Cerrar Sesión</span>
+            </button>
+          </ng-container>
         </div>
       </div>
     </div>
