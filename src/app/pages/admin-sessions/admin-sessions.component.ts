@@ -14,6 +14,7 @@ import { ConfirmationService } from '../../core/services/confirmation.service';
 export class AdminSessionsComponent implements OnInit {
     sessions: Session[] = [];
     users: any[] = []; // Lista de usuarios registrados
+    currentUser: any = null;
 
     constructor(
         private authService: AuthService,
@@ -27,6 +28,7 @@ export class AdminSessionsComponent implements OnInit {
     refreshData() {
         this.sessions = this.authService.getSessions();
         this.users = this.authService.getUsers();
+        this.currentUser = this.authService.getCurrentUser();
     }
 
     refreshSessions() {

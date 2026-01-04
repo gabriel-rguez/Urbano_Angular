@@ -37,23 +37,14 @@
     justify-content: flex-end;
 }
 
-/* Reusing global button styles implicitly via classes, or mimicking them */
-.refresh-btn {
-    background: var(--surface-muted);
-    border: 1px solid var(--card-border);
-    color: var(--text-color);
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.refresh-btn:hover {
-    background: var(--surface-highlight);
-    border-color: var(--primary-color);
+.badge-current {
+    background-color: var(--primary-color);
+    color: var(--secondary-color);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-left: 8px;
 }
 
 .table-container {
@@ -189,6 +180,25 @@ tr:hover td {
 .actions-cell {
     display: flex;
     gap: 10px;
+}
+
+/* Reusing global button styles implicitly via classes, or mimicking them */
+.refresh-btn {
+    background: var(--surface-muted);
+    border: 1px solid var(--card-border);
+    color: var(--text-color);
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.refresh-btn:hover {
+    background: var(--surface-highlight);
+    border-color: var(--primary-color);
 }
 
 /* Helper for spacing if needed, but globals usually suffice.

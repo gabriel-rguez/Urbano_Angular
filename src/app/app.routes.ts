@@ -6,10 +6,10 @@ import { VehiculosComponent } from './pages/vehiculos/vehiculos.component';
 import { RutasComponent } from './pages/rutas/rutas.component';
 import { MonitoringComponent } from './pages/monitoring/monitoring.component';
 import { ReportsComponent } from './pages/reports/reports.component';
-import { SettingsComponent } from './pages/settings/settings.component';
 import { DriverIssuesComponent } from './pages/driver-issues/driver-issues.component';
 import { AdminSupportComponent } from './pages/admin-support/admin-support.component';
 import { AdminSessionsComponent } from './pages/admin-sessions/admin-sessions.component';
+import { SettingsComponent } from './pages/settings/settings.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -27,6 +27,11 @@ export const routes: Routes = [
   { path: 'driver-issues', component: DriverIssuesComponent },
   { path: 'admin-support', component: AdminSupportComponent },
   { path: 'admin-sessions', component: AdminSessionsComponent },
+
+  {
+    path: 'historial',
+    loadComponent: () => import('./pages/history/history.component').then(m => m.HistoryComponent)
+  },
 
   { path: '**', redirectTo: '/home' }
 ];

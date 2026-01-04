@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { AuditService } from './audit.service';
 
 export interface Driver {
   id: number;
@@ -68,6 +69,8 @@ export class FleetService {
   readonly drivers$ = this.driversSubject.asObservable();
   readonly vehicles$ = this.vehiclesSubject.asObservable();
 
+  constructor(private auditService: AuditService) { }
+
   addDriver(driver: Omit<Driver, 'id' | 'vehiculoId'>) {
     const drivers = [...this.driversSubject.getValue()];
     const newDriver: Driver = {
@@ -77,6 +80,7 @@ export class FleetService {
     };
     drivers.unshift(newDriver);
     this.driversSubject.next(drivers);
+    this.auditService.logAction('CREAR', 'CONDUCTOR', `Conductor agregado: ${newDriver.nombreCompleto} (CI: ${newDriver.ci})`);
   }
 
   updateDriver(updatedDriver: Driver) {
@@ -84,11 +88,16 @@ export class FleetService {
       d.id === updatedDriver.id ? updatedDriver : d
     );
     this.driversSubject.next(drivers);
+    this.auditService.logAction('ACTUALIZAR', 'CONDUCTOR', `Conductor actualizado: ${updatedDriver.nombreCompleto}`);
   }
 
   deleteDriver(driverId: number) {
     const drivers = this.driversSubject.getValue().filter(d => d.id !== driverId);
+    const driver = this.driversSubject.getValue().find(d => d.id === driverId);
     this.driversSubject.next(drivers);
+    if (driver) {
+      this.auditService.logAction('ELIMINAR', 'CONDUCTOR', `Conductor eliminado: ${driver.nombreCompleto}`);
+    }
 
     // Desasignar vehículo si tenía uno
     const vehicles = this.vehiclesSubject.getValue().map(v =>
@@ -107,6 +116,7 @@ export class FleetService {
     };
     vehicles.unshift(newVehicle);
     this.vehiclesSubject.next(vehicles);
+    this.auditService.logAction('CREAR', 'VEHICULO', `Vehículo agregado: ${newVehicle.marca} ${newVehicle.modelo} (${newVehicle.matricula})`);
   }
 
   updateVehicle(updatedVehicle: FleetVehicle) {
@@ -114,11 +124,16 @@ export class FleetService {
       v.id === updatedVehicle.id ? updatedVehicle : v
     );
     this.vehiclesSubject.next(vehicles);
+    this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Vehículo actualizado: ${updatedVehicle.matricula}`);
   }
 
   deleteVehicle(vehicleId: number) {
     const vehicles = this.vehiclesSubject.getValue().filter(v => v.id !== vehicleId);
+    const vehicle = this.vehiclesSubject.getValue().find(v => v.id === vehicleId);
     this.vehiclesSubject.next(vehicles);
+    if (vehicle) {
+      this.auditService.logAction('ELIMINAR', 'VEHICULO', `Vehículo eliminado: ${vehicle.matricula}`);
+    }
 
     // Desasignar conductor si tenía uno
     const drivers = this.driversSubject.getValue().map(d =>
@@ -223,6 +238,19 @@ export class FleetService {
   private sendDriverChangeToDatabase(payload: DriverChangePayload) {
     // Aquí se podría realizar la llamada HTTP real hacia la API/BD.
     console.log('Registro de cambio de conductor listo para guardar:', payload);
+
+    let message = '';
+    if (payload.incomingDriverName && payload.outgoingDriverName) {
+      message = `Cambio de conductor en ${payload.vehicleId}: Sale ${payload.outgoingDriverName}, entra ${payload.incomingDriverName}`;
+    } else if (payload.incomingDriverName) {
+      message = `Asignación de conductor en ${payload.vehicleId}: ${payload.incomingDriverName}`;
+    } else if (payload.outgoingDriverName) {
+      message = `Desasignación de conductor en ${payload.vehicleId}: Sale ${payload.outgoingDriverName}`;
+    }
+
+    if (message) {
+      this.auditService.logAction('ACTUALIZAR', 'VEHICULO', message);
+    }
   }
 }
 

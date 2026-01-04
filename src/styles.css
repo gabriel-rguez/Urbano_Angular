@@ -522,11 +522,23 @@ body {
     border: 1px solid rgba(250, 204, 21, 0.7);
 }
 
-.btn-icon.view:hover {
+.btn-icon.view.view:hover {
     background: linear-gradient(135deg, #facc15 0%, #f97316 80%);
     color: #0f172a;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.light-theme .btn-icon.view {
+    background: linear-gradient(135deg, #fffbe1 0%, #ffd84d 60%, #ffca2b 100%);
+    color: #111111;
+    border: 1px solid #1a1a1a;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.light-theme .btn-icon.view:hover {
+    background: linear-gradient(135deg, #ffe89c 0%, #ffc933 70%);
+    color: #111111;
 }
 
 .btn-icon.chat {

@@ -14,29 +14,20 @@
         </a>
       </li>
 
-      <!-- Enlace dinámico de Chat/Soporte -->
-      <!-- Enlace para Conductores: Reportar Avería -->
-      <li class="nav-item" *ngIf="isDriver" [class.active]="isActive('driver-issues')">
-        <a routerLink="/driver-issues" class="nav-link">
-          <i class="fas fa-exclamation-triangle"></i>
-          <span>Reportar Avería</span>
+      <!-- Monitoreo en Tiempo Real (Alta Prioridad) -->
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('monitoring')">
+        <a routerLink="/monitoring" class="nav-link">
+          <i class="fas fa-map-marked-alt"></i>
+          <span>Monitoreo</span>
         </a>
       </li>
 
-      <!-- Enlace para Admin: Soporte Conductores -->
-      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('admin-support')">
-        <a routerLink="/admin-support" class="nav-link">
-          <i class="fas fa-headset"></i>
-          <span>Soporte Conductores</span>
-        </a>
-      </li>
-
-      <!-- Enlaces solo para Administradores -->
+      <!-- Gestión de Flota (Core) -->
       <ng-container *ngIf="isAdmin">
-        <li class="nav-item" [class.active]="isActive('conductores')">
-          <a routerLink="/conductores" class="nav-link">
-            <i class="fas fa-user-tie"></i>
-            <span>Conductores</span>
+        <li class="nav-item" [class.active]="isActive('rutas')">
+          <a routerLink="/rutas" class="nav-link">
+            <i class="fas fa-route"></i>
+            <span>Rutas</span>
           </a>
         </li>
         <li class="nav-item" [class.active]="isActive('vehiculos')">
@@ -45,36 +36,58 @@
             <span>Vehículos</span>
           </a>
         </li>
-        <li class="nav-item" [class.active]="isActive('rutas')">
-          <a routerLink="/rutas" class="nav-link">
-            <i class="fas fa-route"></i>
-            <span>Rutas</span>
+        <li class="nav-item" [class.active]="isActive('conductores')">
+          <a routerLink="/conductores" class="nav-link">
+            <i class="fas fa-user-tie"></i>
+            <span>Conductores</span>
           </a>
         </li>
-        <li class="nav-item" [class.active]="isActive('monitoring')">
-          <a routerLink="/monitoring" class="nav-link">
-            <i class="fas fa-map-marked-alt"></i>
-            <span>Monitoreo</span>
-          </a>
-        </li>
-        <li class="nav-item" [class.active]="isActive('reports')">
-          <a routerLink="/reports" class="nav-link">
-            <i class="fas fa-chart-bar"></i>
-            <span>Reportes</span>
-          </a>
-        </li>
+      </ng-container>
+
+      <!-- Gestión de Incidencias y Soporte -->
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('reports')">
+        <a routerLink="/reports" class="nav-link">
+          <i class="fas fa-chart-bar"></i>
+          <span>Reportes</span>
+        </a>
+      </li>
+
+      <li class="nav-item" *ngIf="isAdmin" [class.active]="isActive('admin-support')">
+        <a routerLink="/admin-support" class="nav-link">
+          <i class="fas fa-headset"></i>
+          <span>Soporte</span>
+        </a>
+      </li>
+
+      <!-- Enlace para Conductores: Reportar Avería -->
+      <li class="nav-item" *ngIf="isDriver" [class.active]="isActive('driver-issues')">
+        <a routerLink="/driver-issues" class="nav-link">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Reportar Avería</span>
+        </a>
+      </li>
+
+      <!-- Administración del Sistema (Seguridad y Auditoría) -->
+      <ng-container *ngIf="isAdmin">
         <li class="nav-item" [class.active]="isActive('admin-sessions')">
           <a routerLink="/admin-sessions" class="nav-link">
             <i class="fas fa-user-shield"></i>
             <span>Sesiones</span>
           </a>
         </li>
+        <li class="nav-item">
+          <a routerLink="/historial" routerLinkActive="active" class="nav-link">
+            <i class="fas fa-history"></i>
+            <span class="link-text" *ngIf="sidebarOpen">Historial</span>
+          </a>
+        </li>
       </ng-container>
 
+      <!-- Configuración (Siempre al final) -->
       <li class="nav-item" [class.active]="isActive('settings')">
         <a routerLink="/settings" class="nav-link">
           <i class="fas fa-cog"></i>
-          <span>Configuración</span>
+          <span class="link-text" *ngIf="sidebarOpen">Ajustes</span>
         </a>
       </li>
     </ul>

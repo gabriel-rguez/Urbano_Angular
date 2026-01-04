@@ -7,6 +7,7 @@ import { PlannedRoute, RouteStop, Vehicle } from '../../core/models/routes.model
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ConfirmationService } from '../../core/services/confirmation.service';
+import { AuditService } from '../../core/services/audit.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -111,7 +112,8 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private routesService: RoutesService,
     private themeService: ThemeService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private auditService: AuditService
   ) { }
 
   get selectedRoute(): PlannedRoute | null {
@@ -199,6 +201,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('ACTUALIZAR', 'RUTA', `Ruta renombrada: ${route.nombre} -> ${nuevoNombre}`);
   }
 
   async deleteRoute(route: PlannedRoute) {
@@ -219,6 +222,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('ELIMINAR', 'RUTA', `Ruta eliminada: ${route.nombre}`);
   }
 
   startRouteDrawing() {
@@ -270,6 +274,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente con los otros mapas
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('CREAR', 'RUTA', `Ruta creada: ${newRoute.nombre}`);
   }
 
   cancelRouteDrawing() {
@@ -391,6 +396,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('ACTUALIZAR', 'PARADA', `Parada actualizada en ruta ${route.nombre}: ${nuevoNombre}`);
   }
 
   async removeStop(stop: RouteStop, routeOverride?: PlannedRoute) {
@@ -421,6 +427,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('ELIMINAR', 'PARADA', `Parada eliminada de ruta ${target.nombre}: ${stop.nombre}`);
   }
 
   centerMap() {
@@ -453,8 +460,13 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     if (!document.fullscreenElement) {
-      wrapper.requestFullscreen().catch(() => {
-        alert('El navegador no permitió activar pantalla completa.');
+      wrapper.requestFullscreen().catch(async () => {
+        await this.confirmationService.confirm({
+          title: 'Error de Pantalla Completa',
+          message: 'El navegador no permitió activar pantalla completa.',
+          confirmText: 'Entendido',
+          type: 'info'
+        });
       });
     } else {
       document.exitFullscreen().catch(() => { });
@@ -688,7 +700,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Validar que el punto esté cerca de la línea de la ruta
     if (targetRoute.polyline.length < 2) {
-      alert('La ruta necesita al menos dos puntos para agregar paradas.');
+      await this.confirmationService.confirm({
+        title: 'Ruta incompleta',
+        message: 'La ruta necesita al menos dos puntos para agregar paradas.',
+        confirmText: 'Entendido',
+        type: 'info'
+      });
       this.isAddingStop = false;
       return;
     }
@@ -750,6 +767,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     // Sincronizar inmediatamente
     this.syncSharedState();
     this.markPendingChanges();
+    this.auditService.logAction('CREAR', 'PARADA', `Parada agregada a ruta ${targetRoute.nombre}: ${stop.nombre}`);
   }
 
   private distanceToRoute(point: L.LatLng, polyline: Array<[number, number]>): number {

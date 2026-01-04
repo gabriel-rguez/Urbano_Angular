@@ -1,0 +1,77 @@
+<app-layout>
+    <span header-title>Historial de Auditoría</span>
+    <div class="filters-container">
+        <div class="filter-group">
+            <label>Filtrar por Categoría</label>
+            <select [(ngModel)]="categoryFilter" (change)="applyFilters()">
+                <option value="">Todas las categorías</option>
+                <option value="CONDUCTOR">Conductores</option>
+                <option value="VEHICULO">Vehículos</option>
+                <option value="RUTA">Rutas</option>
+                <option value="PARADA">Paradas</option>
+                <option value="MAPA">Mapa</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Filtrar por Acción</label>
+            <select [(ngModel)]="actionFilter" (change)="applyFilters()">
+                <option value="">Todas las acciones</option>
+                <option value="CREAR">Crear</option>
+                <option value="ACTUALIZAR">Actualizar</option>
+                <option value="ELIMINAR">Eliminar</option>
+            </select>
+        </div>
+
+        <button class="btn-primary" (click)="clearHistory()" title="Borrar todo el historial"
+            style="margin-left: auto;">
+            <i class="fas fa-trash-alt"></i> Limpiar Historial
+        </button>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="180">Fecha / Hora</th>
+                    <th width="150">Usuario</th>
+                    <th width="140">Acción</th>
+                    <th width="160">Categoría</th>
+                    <th>Detalles</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let log of filteredLogs">
+                    <td class="timestamp-cell">
+                        <i class="far fa-clock" style="width: auto; margin-right: 6px; opacity: 0.7;"></i>
+                        {{ log.timestamp | date:'dd/MM/yyyy HH:mm' }}
+                    </td>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar">{{ log.user.charAt(0) }}</div>
+                            {{ log.user }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" [ngClass]="getBadgeClass(log.action)">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="category-cell">
+                            <i [class]="getCategoryIcon(log.category)"></i>
+                            {{ log.category }}
+                        </div>
+                    </td>
+                    <td class="details-cell">{{ log.details }}</td>
+                </tr>
+                <tr *ngIf="filteredLogs.length === 0">
+                    <td colspan="5" class="empty-state">
+                        <i class="fas fa-search empty-icon"></i>
+                        <p>No se encontraron registros que coincidan con los filtros.</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</app-layout>

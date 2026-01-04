@@ -33,6 +33,10 @@
                                         {{ session.username.charAt(0).toUpperCase() }}
                                     </div>
                                     <span>{{ session.username }}</span>
+                                    <span *ngIf="currentUser && session.username === currentUser.username"
+                                        class="badge-current">
+                                        (Tú)
+                                    </span>
                                 </div>
                             </td>
                             <td>
