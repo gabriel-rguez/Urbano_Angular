@@ -10,17 +10,17 @@
       <div class="card-content">
         <p>Panel de configuración del sistema</p>
         <div class="settings-buttons">
-          <a routerLink="/login" class="btn-admin">
-            <span class="material-icons">admin_panel_settings</span>
-            Acceder como Administrador
-          </a>
-          <button *ngIf="isLoggedIn" class="btn-change-password" (click)="openChangePasswordModal()">
-            <span class="material-icons">vpn_key</span>
-            Cambiar Contraseña
+          <button type="button" class="btn-admin" (click)="testAdmin()">
+            <i class="fas fa-user-shield"></i>
+            <span>Prueba de Admin</span>
           </button>
-          <button *ngIf="isLoggedIn" class="btn-logout" (click)="logout()">
-            <span class="material-icons">logout</span>
-            Cerrar Sesión
+          <button type="button" class="btn-change-password" (click)="changePassword()">
+            <i class="fas fa-key"></i>
+            <span>Cambiar Contraseña</span>
+          </button>
+          <button type="button" class="btn-logout" (click)="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </div>
@@ -41,60 +41,30 @@
       <form (ngSubmit)="onChangePassword()" #passwordForm="ngForm">
         <div class="form-group">
           <label for="currentPassword">Contraseña Actual</label>
-          <input 
-            type="password" 
-            id="currentPassword" 
-            name="currentPassword"
-            [(ngModel)]="currentPassword"
-            autocomplete="current-password"
-            placeholder="Ingresa tu contraseña actual"
-            required>
+          <input type="password" id="currentPassword" name="currentPassword" [(ngModel)]="currentPassword"
+            autocomplete="current-password" placeholder="Ingresa tu contraseña actual" required>
         </div>
         <div class="form-group">
           <label for="newPassword">Nueva Contraseña</label>
-          <input 
-            type="password" 
-            id="newPassword" 
-            name="newPassword"
-            [(ngModel)]="newPassword"
-            autocomplete="new-password"
-            placeholder="Ingresa tu nueva contraseña"
-            required>
+          <input type="password" id="newPassword" name="newPassword" [(ngModel)]="newPassword"
+            autocomplete="new-password" placeholder="Ingresa tu nueva contraseña" required>
         </div>
         <div class="form-group">
           <label for="confirmPassword">Confirmar Nueva Contraseña</label>
-          <input 
-            type="password" 
-            id="confirmPassword" 
-            name="confirmPassword"
-            [(ngModel)]="confirmPassword"
-            autocomplete="new-password"
-            placeholder="Confirma tu nueva contraseña"
-            required>
+          <input type="password" id="confirmPassword" name="confirmPassword" [(ngModel)]="confirmPassword"
+            autocomplete="new-password" placeholder="Confirma tu nueva contraseña" required>
         </div>
-        
-        <div 
-          *ngIf="message" 
-          class="message" 
-          [class.error]="messageType === 'error'"
-          [class.success]="messageType === 'success'"
-          [class.info]="messageType === 'info'">
+
+        <div *ngIf="message" class="message" [class.error]="messageType === 'error'"
+          [class.success]="messageType === 'success'" [class.info]="messageType === 'info'">
           {{ message }}
         </div>
 
         <div class="modal-actions">
-          <button 
-            type="submit" 
-            class="btn-submit"
-            [class.loading]="loading"
-            [disabled]="loading">
+          <button type="submit" class="btn-submit" [class.loading]="loading" [disabled]="loading">
             <i class="fas fa-save"></i> Guardar Cambios
           </button>
-          <button 
-            type="button" 
-            class="btn-cancel"
-            (click)="closeChangePasswordModal()"
-            [disabled]="loading">
+          <button type="button" class="btn-cancel" (click)="closeChangePasswordModal()" [disabled]="loading">
             Cancelar
           </button>
         </div>
@@ -102,4 +72,3 @@
     </div>
   </div>
 </div>
-

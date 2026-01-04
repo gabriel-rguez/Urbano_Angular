@@ -1,27 +1,84 @@
-# GestionEcomovil
+# 🚖 Urbano - Gestión Ecomovil
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.0.
+> Plataforma integral para la gestión y monitoreo de transporte urbano ecológico.
 
-## Development server
+![Angular](https://img.shields.io/badge/Angular-18.2-dd0031?style=flat&logo=angular)
+![Leaflet](https://img.shields.io/badge/Leaflet-Mapas-199900?style=flat&logo=leaflet)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+**Urbano** es una aplicación web moderna desarrollada con **Angular 18** diseñada para administrar flotas de vehículos eléctricos (Ecotaxis), monitorear rutas en tiempo real y gestionar incidencias. El sistema ofrece una experiencia de usuario premium con soporte nativo para temas claro y oscuro.
 
-## Code scaffolding
+---
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+## ✨ Características Principales
 
-## Build
+### 🗺️ Monitoreo en Tiempo Real
+- **Mapa Interactivo**: Visualización de vehículos y rutas utilizando **Leaflet.js**.
+- **Seguimiento en Vivo**: Actualización en tiempo real de la posición y estado de los vehículos.
+- **Gestión de Rutas**: Herramientas avanzadas para trazar, editar y gestionar paradas de rutas urbanas.
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+### 🚗 Gestión de Flota
+- **Inventario de Vehículos**: CRUD completo de unidades, control de mantenimiento y estados.
+- **Directorio de Conductores**: Gestión de perfiles, licencias y asignación de vehículos.
 
-## Running unit tests
+### 🛡️ Seguridad y Auditoría
+- **Roles de Usuario**: Acceso diferenciado para Administradores y Conductores.
+- **Historial de Auditoría**: Registro inmutable de todas las acciones críticas (Crear, Editar, Eliminar) realizado por los administradores.
+- **Gestión de Sesiones**: Monitoreo de usuarios conectados y control de acceso.
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+### 🎨 Experiencia de Usuario (UI/UX)
+- **Tema Dinámico**: Transición fluida entre **Modo Claro** y **Modo Oscuro**.
+- **Diseño Responsivo**: Interfaz adaptable a diferentes dispositivos.
+- **Estilo Premium**: Componentes visuales modernos, animaciones suaves y paleta de colores cuidada.
 
-## Running end-to-end tests
+### 🔧 Operaciones
+- **Sistema de Reportes**: Gestión de incidencias reportadas por conductores.
+- **Chat de Soporte**: Canal de comunicación para resolución de problemas.
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+---
 
-## Further help
+## 🚀 Instalación y Uso
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Este proyecto requiere **Node.js** y **Angular CLI**.
+
+1.  **Clonar el repositorio**
+    ```bash
+    git clone https://github.com/tu-usuario/gestion-ecomovil.git
+    cd gestion_ecomovil
+    ```
+
+2.  **Instalar dependencias**
+    ```bash
+    npm install
+    ```
+
+3.  **Ejecutar servidor de desarrollo**
+    ```bash
+    ng serve
+    ```
+    Navega a `http://localhost:4200/`. La aplicación se recargará automáticamente si cambias algún archivo fuente.
+
+## 🔐 Credenciales de Demo
+
+Para probar todas las funcionalidades administrativas, utiliza las siguientes credenciales por defecto:
+
+*   **Usuario**: `admin`
+*   **Contraseña**: `123456`
+
+## 📚 Documentación Técnica
+
+Para una comprensión profunda de la arquitectura, servicios y módulos del sistema, consulta nuestra documentación interna:
+
+*   [📄 Documentación General del Proyecto](./docs/DOCUMENTACION_GENERAL.md): Arquitectura, Servicios Core y Módulos.
+*   [📝 Historial de Cambios](./docs/HISTORIAL_CAMBIOS.md): Registro detallado de implementaciones recientes.
+
+## 🛠️ Tecnologías
+
+*   **Frontend**: Angular 18 (Standalone Components)
+*   **Mapas**: Leaflet
+*   **Estilos**: CSS3 (Variables CSS, Flexbox, Grid)
+*   **Iconos**: FontAwesome 6
+
+---
+
+Desarrollado como proyecto académico para la asignatura de Web.

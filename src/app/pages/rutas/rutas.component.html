@@ -8,7 +8,8 @@
         <div>
           <h2>Mapa de diseño</h2>
           <p>
-            Dibuja rutas sobre el mapa, define paradas numeradas y visualiza cada recorrido antes de guardarlo en la base de datos.
+            Dibuja rutas sobre el mapa, define paradas numeradas y visualiza cada recorrido antes de guardarlo en la
+            base de datos.
           </p>
         </div>
         <div class="map-actions">
@@ -23,12 +24,7 @@
           <button type="button" class="btn-ghost" (click)="centerMap()">
             <i class="fas fa-crosshairs"></i> Centrar
           </button>
-          <button
-            type="button"
-            class="btn-ghost"
-            (click)="refreshData()"
-            [disabled]="isRefreshing"
-          >
+          <button type="button" class="btn-ghost" (click)="refreshData()" [disabled]="isRefreshing">
             <i class="fas fa-sync-alt" [ngClass]="{ 'fa-spin': isRefreshing }"></i>
             {{ isRefreshing ? 'Actualizando...' : 'Actualizar' }}
           </button>
@@ -45,7 +41,8 @@
           <button type="button" class="btn-tool active">
             <i class="fas fa-pen-fancy"></i> Dibujando ruta...
           </button>
-          <button type="button" class="btn-tool" (click)="finishRouteDrawing()" [disabled]="draftRoutePoints.length < 2">
+          <button type="button" class="btn-tool" (click)="finishRouteDrawing()"
+            [disabled]="draftRoutePoints.length < 2">
             <i class="fas fa-check"></i> Finalizar ruta
           </button>
           <button type="button" class="btn-tool" (click)="cancelRouteDrawing()">
@@ -104,57 +101,29 @@
             <i class="fas fa-edit"></i> {{ selectedStop ? 'Editando parada...' : 'Editando ruta...' }}
           </button>
           <ng-container *ngIf="!selectedStop">
-            <button 
-              type="button" 
-              class="btn-tool" 
-              [class.active]="scissorMode" 
-              (click)="toggleScissorMode()" 
-              title="Cortar ruta: Activa el modo cortar para acortar la ruta. Haz clic en un nodo amarillo para cortar la ruta en ese punto, eliminando todos los puntos posteriores."
-            >
+            <button type="button" class="btn-tool" [class.active]="scissorMode" (click)="toggleScissorMode()"
+              title="Cortar ruta: Activa el modo cortar para acortar la ruta. Haz clic en un nodo amarillo para cortar la ruta en ese punto, eliminando todos los puntos posteriores.">
               <i class="fas fa-cut"></i> Cortar
             </button>
-            <button 
-              type="button" 
-              class="btn-tool" 
-              (click)="startExtendingStart()" 
-              [disabled]="scissorMode"
-              title="Extender inicio: Permite agregar nuevos puntos al inicio de la ruta haciendo clic en el mapa."
-            >
+            <button type="button" class="btn-tool" (click)="startExtendingStart()" [disabled]="scissorMode"
+              title="Extender inicio: Permite agregar nuevos puntos al inicio de la ruta haciendo clic en el mapa.">
               <i class="fas fa-arrow-left"></i> Extender inicio
             </button>
-            <button 
-              type="button" 
-              class="btn-tool" 
-              (click)="startExtendingEnd()" 
-              [disabled]="scissorMode"
-              title="Extender fin: Permite agregar nuevos puntos al final de la ruta haciendo clic en el mapa."
-            >
+            <button type="button" class="btn-tool" (click)="startExtendingEnd()" [disabled]="scissorMode"
+              title="Extender fin: Permite agregar nuevos puntos al final de la ruta haciendo clic en el mapa.">
               <i class="fas fa-arrow-right"></i> Extender fin
             </button>
           </ng-container>
           <ng-container *ngIf="selectedStop">
-            <button 
-              type="button" 
-              class="btn-tool" 
-              (click)="editStop(selectedStop)"
-              title="Editar la parada seleccionada"
-            >
+            <button type="button" class="btn-tool" (click)="editStop(selectedStop)"
+              title="Editar la parada seleccionada">
               <i class="fas fa-pen"></i> Editar parada
             </button>
-            <button 
-              type="button" 
-              class="btn-tool danger" 
-              (click)="removeStop(selectedStop)"
-              title="Eliminar la parada seleccionada"
-            >
+            <button type="button" class="btn-tool danger" (click)="removeStop(selectedStop)"
+              title="Eliminar la parada seleccionada">
               <i class="fas fa-trash"></i> Eliminar parada
             </button>
-            <button 
-              type="button" 
-              class="btn-tool" 
-              (click)="clearStopSelection()"
-              title="Deseleccionar parada"
-            >
+            <button type="button" class="btn-tool" (click)="clearStopSelection()" title="Deseleccionar parada">
               <i class="fas fa-times"></i> Deseleccionar
             </button>
           </ng-container>
@@ -175,20 +144,11 @@
           <button type="button" class="btn-tool" (click)="startRouteDrawing()">
             <i class="fas fa-pen-fancy"></i> Dibujar ruta
           </button>
-          <button 
-            type="button" 
-            class="btn-tool" 
-            (click)="startAddingStopForSelectedRoute()" 
-            [disabled]="!selectedRoute"
-          >
+          <button type="button" class="btn-tool" (click)="startAddingStopForSelectedRoute()"
+            [disabled]="!selectedRoute">
             <i class="fas fa-map-marker-alt"></i> Agregar paradas
           </button>
-          <button 
-            type="button" 
-            class="btn-tool" 
-            (click)="toggleRouteEditing()" 
-            [disabled]="!selectedRoute"
-          >
+          <button type="button" class="btn-tool" (click)="toggleRouteEditing()" [disabled]="!selectedRoute">
             <i class="fas fa-edit"></i> Editar ruta o paradas
           </button>
           <span class="divider"></span>
@@ -199,27 +159,24 @@
             <i class="fas fa-redo"></i> Rehacer
           </button>
           <span class="divider"></span>
-          <button type="button" class="btn-tool ghost" (click)="clearSelection()" [disabled]="!selectedRoute && !hasDraftRoute">
+          <button type="button" class="btn-tool ghost" (click)="clearSelection()"
+            [disabled]="!selectedRoute && !hasDraftRoute">
             Limpiar mapa
           </button>
         </ng-container>
       </div>
 
       <!-- Banner de instrucciones visible -->
-      <div class="instruction-banner" *ngIf="pendingStopMessage || (showInitialHint && !selectedRoute && !isDrawingRoute)">
+      <div class="instruction-banner"
+        *ngIf="pendingStopMessage || (showInitialHint && !selectedRoute && !isDrawingRoute)">
         <div class="instruction-content">
           <i class="fas fa-info-circle"></i>
           <p>{{ pendingStopMessage || 'Selecciona una ruta en la tabla o pulsa "Dibujar ruta" para comenzar.' }}</p>
-          <button 
-            type="button" 
-            class="btn-close-instruction" 
-            (click)="dismissInitialHint()" 
-            [disabled]="extendingStart || extendingEnd"
-            [style.opacity]="(extendingStart || extendingEnd) ? '0.5' : '1'"
+          <button type="button" class="btn-close-instruction" (click)="dismissInitialHint()"
+            [disabled]="extendingStart || extendingEnd" [style.opacity]="(extendingStart || extendingEnd) ? '0.5' : '1'"
             [style.cursor]="(extendingStart || extendingEnd) ? 'not-allowed' : 'pointer'"
             aria-label="Cerrar instrucciones"
-            title="{{ (extendingStart || extendingEnd) ? 'No se puede cerrar durante la extensión de ruta' : 'Cerrar instrucciones' }}"
-          >
+            title="{{ (extendingStart || extendingEnd) ? 'No se puede cerrar durante la extensión de ruta' : 'Cerrar instrucciones' }}">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -260,43 +217,23 @@
             <td>{{ route.paradas.length }}</td>
             <td><span class="route-status active">{{ route.estado }}</span></td>
             <td class="table-actions">
-              <button
-                type="button"
-                class="btn-action btn-action-view"
-                (click)="viewRoute(route)"
-                [attr.aria-label]="'Visualizar ' + route.nombre"
-                title="Visualizar {{ route.nombre }}"
-              >
-                <span class="material-icons">visibility</span>
+              <button type="button" class="btn-action btn-action-view" (click)="viewRoute(route)"
+                [attr.aria-label]="'Visualizar ' + route.nombre" title="Visualizar {{ route.nombre }}">
+                <i class="fas fa-eye"></i>
                 <span>Ver</span>
               </button>
-              <button
-                type="button"
-                class="btn-action btn-action-add"
-                (click)="startAddingStopForRoute(route)"
-                [attr.aria-label]="'Agregar paradas a ' + route.nombre"
-                title="Agregar paradas a {{ route.nombre }}"
-              >
-                <span class="material-icons">pin_drop</span>
+              <button type="button" class="btn-action btn-action-add" (click)="startAddingStopForRoute(route)"
+                [attr.aria-label]="'Agregar paradas a ' + route.nombre" title="Agregar paradas a {{ route.nombre }}">
+                <i class="fas fa-map-marker-alt"></i>
                 <span>Paradas</span>
               </button>
-              <button
-                type="button"
-                class="btn-action btn-action-edit"
-                (click)="editRoute(route)"
-                [attr.aria-label]="'Renombrar ' + route.nombre"
-                title="Renombrar {{ route.nombre }}"
-              >
-                <span class="material-icons">edit</span>
+              <button type="button" class="btn-action btn-action-edit" (click)="editRoute(route)"
+                [attr.aria-label]="'Renombrar ' + route.nombre" title="Renombrar {{ route.nombre }}">
+                <i class="fas fa-edit"></i>
                 <span>Editar</span>
               </button>
-              <button
-                type="button"
-                class="btn-action btn-action-delete"
-                (click)="deleteRoute(route)"
-                [attr.aria-label]="'Eliminar ' + route.nombre"
-                title="Eliminar {{ route.nombre }}"
-              >
+              <button type="button" class="btn-action btn-action-delete" (click)="deleteRoute(route)"
+                [attr.aria-label]="'Eliminar ' + route.nombre" title="Eliminar {{ route.nombre }}">
                 <span class="material-icons">delete</span>
                 <span>Eliminar</span>
               </button>
@@ -315,19 +252,13 @@
             <span class="color-helper">Color de ruta</span>
             <label class="color-picker">
               <span>Color</span>
-              <input #routeColor type="color" [value]="selectedRoute!.color" (change)="onRouteColorChange(routeColor.value)">
+              <input #routeColor type="color" [value]="selectedRoute!.color"
+                (change)="onRouteColorChange(routeColor.value)">
             </label>
             <div class="color-palette">
-              <button
-                type="button"
-                class="palette-swatch"
-                *ngFor="let color of paletteColors"
-                [style.background]="color"
-                [class.selected]="selectedRoute!.color === color"
-                (click)="onRouteColorChange(color)"
-                [title]="'Aplicar ' + color"
-                [attr.aria-label]="'Aplicar ' + color"
-              >
+              <button type="button" class="palette-swatch" *ngFor="let color of paletteColors"
+                [style.background]="color" [class.selected]="selectedRoute!.color === color"
+                (click)="onRouteColorChange(color)" [title]="'Aplicar ' + color" [attr.aria-label]="'Aplicar ' + color">
                 <span class="sr-only">Color {{ color }}</span>
               </button>
             </div>
@@ -341,12 +272,8 @@
         </div>
 
         <ul class="stops-list" *ngIf="selectedRoute!.paradas.length; else emptyStops">
-          <li 
-            *ngFor="let stop of selectedRoute!.paradas; let i = index"
-            [class.selected]="selectedStopId === stop.id"
-            (click)="selectStop(stop, $event)"
-            [style.cursor]="isRouteEditing ? 'pointer' : 'default'"
-          >
+          <li *ngFor="let stop of selectedRoute!.paradas; let i = index" [class.selected]="selectedStopId === stop.id"
+            (click)="selectStop(stop, $event)" [style.cursor]="isRouteEditing ? 'pointer' : 'default'">
             <div>
               <span class="stop-number">{{ i + 1 }}</span>
               <div class="stop-info">
@@ -357,22 +284,12 @@
               </div>
             </div>
             <div class="stop-actions" *ngIf="!isRouteEditing">
-              <button
-                type="button"
-                class="btn-mini"
-                (click)="editStop(stop); $event.stopPropagation()"
-                [attr.aria-label]="'Editar ' + stop.nombre"
-                title="Editar {{ stop.nombre }}"
-              >
+              <button type="button" class="btn-mini" (click)="editStop(stop); $event.stopPropagation()"
+                [attr.aria-label]="'Editar ' + stop.nombre" title="Editar {{ stop.nombre }}">
                 <i class="fas fa-pen"></i>
               </button>
-              <button
-                type="button"
-                class="btn-mini danger"
-                (click)="removeStop(stop); $event.stopPropagation()"
-                [attr.aria-label]="'Eliminar ' + stop.nombre"
-                title="Eliminar {{ stop.nombre }}"
-              >
+              <button type="button" class="btn-mini danger" (click)="removeStop(stop); $event.stopPropagation()"
+                [attr.aria-label]="'Eliminar ' + stop.nombre" title="Eliminar {{ stop.nombre }}">
                 <i class="fas fa-times"></i>
               </button>
             </div>
@@ -395,4 +312,3 @@
     </div>
   </section>
 </app-layout>
-
