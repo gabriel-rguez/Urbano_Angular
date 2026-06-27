@@ -80,5 +80,3 @@ Para una comprensión profunda de la arquitectura, servicios y módulos del sist
 *   **Iconos**: FontAwesome 6
 
 ---
-
-Desarrollado como proyecto académico para la asignatura de Web.
