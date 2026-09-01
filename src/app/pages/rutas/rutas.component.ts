@@ -8,7 +8,10 @@ import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ConfirmationService } from '../../core/services/confirmation.service';
 import { AuditService } from '../../core/services/audit.service';
-import { Subscription } from 'rxjs';
+import { FleetService } from '../../core/services/fleet.service';
+import { TelemetryService } from '../../core/services/telemetry.service';
+import { Subscription, combineLatest } from 'rxjs';
+import { fallbackParkingPosition, vehicleStatusColor, vehicleStatusLabel, normalizeVehicleStatus } from '../../core/utils/vehicle-status';
 
 @Component({
   selector: 'app-rutas',
@@ -42,14 +45,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
   isAddingStation = false; // Mode flag
   tempStationMarker: L.Marker | null = null;
 
-  vehicles: Vehicle[] = [
-    // R-1: Posicionado sobre la Ruta Centro (entre punto 1 y 2 del polyline)
-    { id: 101, unidad: 'R-1', conductor: 'Bruno Díaz', estado: 'En ruta', lat: 21.96735, lng: -79.43215, color: '#facc15', velocidad: 48, gpsActivo: true },
-    // R-2: Posicionado cerca de una parada de la Ruta Centro
-    { id: 102, unidad: 'R-2', conductor: 'Selena Pérez', estado: 'En parada', lat: 21.9670, lng: -79.4320, color: '#111111', velocidad: 0, gpsActivo: true },
-    // R-3: Posicionado sobre la Ruta Norte (entre punto 1 y 2 del polyline)
-    { id: 103, unidad: 'R-3', conductor: 'Marta Ruiz', estado: 'En ruta', lat: 21.9645, lng: -79.4360, color: '#f97316', velocidad: 32, gpsActivo: false }
-  ];
+  vehicles: Vehicle[] = [];
 
   paletteColors: string[] = ['#efb810', '#111111', '#f97316', '#0ea5e9', '#10b981', '#f43f5e'];
 
@@ -83,7 +79,9 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     private routesService: RoutesService,
     private themeService: ThemeService,
     private confirmationService: ConfirmationService,
-    private auditService: AuditService
+    private auditService: AuditService,
+    private fleetService: FleetService,
+    private telemetryService: TelemetryService
   ) { }
 
   get selectedRoute(): PlannedRoute | null {
@@ -111,57 +109,44 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit(): void {
     this.setupLeafletIcons();
-    this.setupLeafletIcons();
-    const sharedRoutes = this.routesService.getCurrentRoutes();
-    const sharedVehicles = this.routesService.getCurrentVehicles();
-    const sharedStations = this.routesService.getCurrentStations();
-
-    if (sharedRoutes.length) {
-      this.routes = sharedRoutes.map(route => ({
-        ...route,
-        polyline: route.polyline.map(point => [point[0], point[1]] as [number, number]),
-        paradas: route.paradas.map(stop => ({ ...stop }))
-      }));
-    } else {
-      // Fallback demo data if empty
-      this.routes = [
-        {
-          id: 1,
-          nombre: 'Ruta Centro',
-          origen: 'Parque Serafín',
-          destino: 'Plaza Mayor',
-          estado: 'Activa',
-          polyline: [[21.9667, -79.4333], [21.9680, -79.4310], [21.9700, -79.4280]],
-          color: '#efb810',
-          paradas: [{ id: 11, nombre: 'Parada 1', lat: 21.9670, lng: -79.4320 }, { id: 12, nombre: 'Parada 2', lat: 21.9685, lng: -79.4300 }, { id: 13, nombre: 'Parada 3', lat: 21.9695, lng: -79.4290 }]
-        },
-        {
-          id: 2,
-          nombre: 'Ruta Norte',
-          origen: 'Avenida Libertad',
-          destino: 'Estación Central',
-          estado: 'Activa',
-          polyline: [[21.9650, -79.4350], [21.9640, -79.4370], [21.9630, -79.4390]],
-          color: '#111111',
-          paradas: [{ id: 21, nombre: 'Norte 1', lat: 21.9645, lng: -79.4360 }, { id: 22, nombre: 'Norte 2', lat: 21.9635, lng: -79.4380 }]
-        }
-      ];
-    }
-
-    if (sharedVehicles.length) {
-      this.vehicles = sharedVehicles.map(vehicle => ({ ...vehicle }));
-    }
-
-    if (sharedStations.length) {
-      this.stations = sharedStations.map(s => ({ ...s }));
-    }
-    this.saveToHistory();
-    this.syncSharedState();
-
-    // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
     });
+    this.themeSubscription.add(
+      this.routesService.routes$.subscribe(routes => {
+        this.routes = routes.map(route => ({
+          ...route,
+          polyline: route.polyline.map(point => [point[0], point[1]] as [number, number]),
+          paradas: route.paradas.map(stop => ({ ...stop }))
+        }));
+        this.renderSelectedRoute();
+      })
+    );
+    this.themeSubscription.add(
+      combineLatest([this.fleetService.vehicles$, this.fleetService.drivers$, this.telemetryService.positions$])
+        .subscribe(([fleet, drivers, positions]) => {
+          this.vehicles = fleet.map(v => {
+            const gps = positions.get(v.id);
+            const parking = fallbackParkingPosition(v.id);
+            const estado = gps?.estado || v.estado;
+            return {
+              id: v.id,
+              unidad: v.matricula || `V-${v.id}`,
+              matricula: v.matricula,
+              conductor: drivers.find(d => d.id === v.conductorId)?.nombreCompleto || 'Sin asignar',
+              conductorId: v.conductorId,
+              estado,
+              lat: gps?.lat || parking.lat,
+              lng: gps?.lng || parking.lng,
+              color: vehicleStatusColor(estado),
+              velocidad: gps?.velocidad ?? 0,
+              gpsActivo: !!gps
+            };
+          });
+          this.renderVehicles();
+        })
+    );
+    this.saveToHistory();
   }
 
   ngAfterViewInit(): void {
@@ -217,14 +202,20 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!confirmed) {
       return;
     }
-    this.routes = this.routes.filter(r => r.id !== route.id);
-    if (this.selectedRouteId === route.id) {
-      this.clearSelection();
-    }
-    // Sincronizar inmediatamente
-    this.syncSharedState();
-    this.markPendingChanges();
-    this.auditService.logAction('ELIMINAR', 'RUTA', `Ruta eliminada: ${route.nombre}`);
+    this.routesService.deleteRoute(route.id).subscribe({
+      next: () => {
+        this.routes = this.routes.filter(r => r.id !== route.id);
+        if (this.selectedRouteId === route.id) {
+          this.clearSelection();
+        }
+        this.syncSharedState();
+        this.markPendingChanges();
+        this.auditService.logAction('ELIMINAR', 'RUTA', `Ruta eliminada: ${route.nombre}`);
+      },
+      error: (err) => {
+        this.refreshError = err?.message || 'No se pudo eliminar la ruta.';
+      }
+    });
   }
 
   startRouteDrawing() {
@@ -254,8 +245,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const newRoute: PlannedRoute = {
-      id: Date.now(),
+    const draft: Omit<PlannedRoute, 'id'> = {
       nombre: metadata.nombre,
       origen: metadata.origen,
       destino: metadata.destino,
@@ -265,18 +255,24 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       paradas: []
     };
 
-    this.routes = [newRoute, ...this.routes];
-    this.selectedRouteId = newRoute.id;
-    this.stopTargetRouteId = newRoute.id;
-    this.isAddingStop = false;
-    this.isDrawingRoute = false;
-    this.pendingStopMessage = 'Ruta creada. Usa "Agregar paradas" para completar la información antes de persistirla.';
-    this.resetDraftRoute();
-    this.renderSelectedRoute();
-    // Sincronizar inmediatamente con los otros mapas
-    this.syncSharedState();
-    this.markPendingChanges();
-    this.auditService.logAction('CREAR', 'RUTA', `Ruta creada: ${newRoute.nombre}`);
+    this.routesService.createRoute(draft).subscribe({
+      next: (saved) => {
+        this.routes = [saved, ...this.routes.filter(r => r.id !== saved.id)];
+        this.selectedRouteId = saved.id;
+        this.stopTargetRouteId = saved.id;
+        this.isAddingStop = false;
+        this.isDrawingRoute = false;
+        this.pendingStopMessage = 'Ruta guardada en el servidor. Puedes agregar paradas.';
+        this.resetDraftRoute();
+        this.renderSelectedRoute();
+        this.syncSharedState();
+        this.markPendingChanges();
+        this.auditService.logAction('CREAR', 'RUTA', `Ruta creada: ${saved.nombre}`);
+      },
+      error: (err) => {
+        this.pendingStopMessage = err?.message || 'No se pudo guardar la ruta en el servidor.';
+      }
+    });
   }
 
   cancelRouteDrawing() {
@@ -916,15 +912,22 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       descripcion,
       direccion: direccion || undefined
     };
-    targetRoute.paradas = [...targetRoute.paradas, stop];
-    this.routes = this.routes.map(route => route.id === targetRoute.id ? { ...targetRoute } : route);
-    this.renderSelectedRoute();
-    this.isAddingStop = false;
-    this.pendingStopMessage = '';
-    // Sincronizar inmediatamente
-    this.syncSharedState();
-    this.markPendingChanges();
-    this.auditService.logAction('CREAR', 'PARADA', `Parada agregada a ruta ${targetRoute.nombre}: ${stop.nombre}`);
+    this.routesService.createStop(targetRoute.id, { nombre: stop.nombre, lat: stop.lat, lng: stop.lng }).subscribe({
+      next: () => {
+        targetRoute.paradas = [...targetRoute.paradas, stop];
+        this.routes = this.routes.map(route => route.id === targetRoute.id ? { ...targetRoute } : route);
+        this.renderSelectedRoute();
+        this.isAddingStop = false;
+        this.pendingStopMessage = '';
+        this.syncSharedState();
+        this.markPendingChanges();
+        this.auditService.logAction('CREAR', 'PARADA', `Parada agregada a ruta ${targetRoute.nombre}: ${stop.nombre}`);
+      },
+      error: (err) => {
+        this.pendingStopMessage = err?.message || 'No se pudo guardar la parada.';
+        this.isAddingStop = false;
+      }
+    });
   }
 
   private distanceToRoute(point: L.LatLng, polyline: Array<[number, number]>): number {
@@ -2178,14 +2181,12 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     this.vehicleMarkers.forEach(marker => marker.remove());
-    this.vehicleMarkers = this.vehicles.map(vehicle => {
-      const isActive = vehicle.gpsActivo !== false; // Por defecto activo si no se especifica
-      // Icono pequeño con círculo de fondo y icono de carro dentro
-      // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
-      const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
+    this.vehicleMarkers = this.vehicles.filter(vehicle => vehicle.lat && vehicle.lng).map(vehicle => {
+      const isActive = normalizeVehicleStatus(vehicle.estado) === 'TRABAJANDO';
+      const iconSize = 32;
       const centerPoint = iconSize / 2;
 
-      const circleColor = isActive ? '#10b981' : '#6b7280';
+      const circleColor = vehicleStatusColor(vehicle.estado);
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
         html: `
@@ -2206,7 +2207,7 @@ export class RutasComponent implements OnInit, OnDestroy, AfterViewInit {
         <div class="vehicle-popup">
           <strong>${vehicle.unidad}</strong><br>
           Conductor: ${vehicle.conductor}<br>
-          Estado: ${vehicle.estado}<br>
+          Estado: ${vehicleStatusLabel(vehicle.estado)}<br>
           GPS: ${isActive ? '<span style="color: #10b981;">● Activo</span>' : '<span style="color: #6b7280;">○ Inactivo</span>'}${vehicle.velocidad !== undefined ? `<br>Velocidad: ${vehicle.velocidad} km/h` : ''}
         </div>
       `);

@@ -22,6 +22,8 @@ export class ReportsComponent implements OnInit {
   ) { }
 
   ngOnInit() {
+    // Forzar recarga de reportes al iniciar
+    this.reportsService.getReports().subscribe();
     this.reportsService.reports$.subscribe(data => {
       this.reports = data;
     });

@@ -31,7 +31,8 @@ export class DriverIssuesComponent implements OnInit, AfterViewChecked {
             this.router.navigate(['/login']);
             return;
         }
-
+        // Forzar recarga de mensajes al iniciar
+        this.chatService.getMessagesForConversation(this.currentUser.username).subscribe();
         // Suscribirse solo a los mensajes de este conductor
         this.chatService.getMessagesForConversation(this.currentUser.username).subscribe(msgs => {
             this.messages = msgs;

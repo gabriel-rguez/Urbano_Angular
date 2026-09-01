@@ -3,7 +3,7 @@
   <nav class="sidebar" [class.closed]="!sidebarOpen">
     <div class="sidebar-header">
       <h2><i class="fas fa-car"></i> Urbano</h2>
-      <p>{{ isAdmin ? 'Panel del administrador' : 'Panel de usuario' }}</p>
+      <p>{{ isAdmin ? 'Panel del administrador' : (isDriver ? 'Panel del conductor' : 'Vista pública') }}</p>
     </div>
 
     <ul class="nav-menu">
@@ -63,6 +63,13 @@
         </a>
       </li>
 
+      <li class="nav-item" *ngIf="isDriver" [class.active]="isActive('estado')">
+        <a routerLink="/estado" class="nav-link">
+          <i class="fas fa-traffic-light"></i>
+          <span>Estado</span>
+        </a>
+      </li>
+
       <!-- Enlace para Conductores: Reportar Avería -->
       <li class="nav-item" *ngIf="isDriver" [class.active]="isActive('driver-issues')">
         <a routerLink="/driver-issues" class="nav-link">
@@ -90,11 +97,18 @@
         </li>
       </ng-container>
 
-      <!-- Configuración (Siempre al final) -->
-      <li class="nav-item" [class.active]="isActive('settings')">
+      <!-- Configuración (personal) -->
+      <li class="nav-item" *ngIf="isAdmin || isDriver" [class.active]="isActive('settings')">
         <a routerLink="/settings" class="nav-link">
           <i class="fas fa-cog"></i>
           <span class="link-text" *ngIf="sidebarOpen">Ajustes</span>
+        </a>
+      </li>
+
+      <li class="nav-item" *ngIf="isGuest">
+        <a routerLink="/login" class="nav-link">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>Iniciar sesión</span>
         </a>
       </li>
     </ul>
@@ -187,13 +201,14 @@
         </button>
       </div>
       <div class="header-right">
-        <div class="connection-status">
-          <span class="status-dot online"></span>
-          <span>Conectado</span>
+        <div *ngIf="isAdmin" class="connection-status" [class.offline]="!backendOnline" [attr.title]="backendOnline ? 'Conectado al servidor' : 'Sin conexión con el servidor'">
+          <span class="status-dot" [class.online]="backendOnline" [class.offline]="!backendOnline"></span>
+          <i class="fas" [ngClass]="backendOnline ? 'fa-wifi' : 'fa-wifi-slash'" aria-hidden="true"></i>
+          <span>{{ backendOnline ? 'Conectado' : 'Sin conexión' }}</span>
         </div>
-        <div class="user-info">
+        <div class="user-info" *ngIf="!isGuest">
           <i class="fas fa-user-circle"></i>
-          <span>{{ isAdmin ? 'Administrador' : 'Usuario' }}</span>
+          <span>{{ isAdmin ? 'Administrador' : (isDriver ? 'Conductor' : 'Usuario') }}</span>
         </div>
         <div class="last-update">
           Última actualización: <span id="lastUpdate">{{ getCurrentTime() }}</span>

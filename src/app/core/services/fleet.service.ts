@@ -1,10 +1,16 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpContext } from '@angular/common/http';
+import { SKIP_AUTH } from '../interceptors/auth.interceptor';
+import { environment } from '../../../environments/environment';
 import { AuditService } from './audit.service';
+import { AuthService } from './auth.service';
+import { DriverVehicleStatus, telemetryEstadoIndex } from '../utils/vehicle-status';
 
 export interface Driver {
   id: number;
   ci: string;
+  usuarioId?: string;
   nombreCompleto: string;
   telefono: string;
   email: string;
@@ -24,6 +30,7 @@ export interface FleetVehicle {
   ano?: number;
   capacidad?: number;
   conductorId: number | null;
+  imeiDispositivoGps?: string | null;
 }
 
 export interface DriverChangePayload {
@@ -35,223 +42,471 @@ export interface DriverChangePayload {
   changedAt: string;
 }
 
+export interface WeeklyStats {
+  vehicles: number;
+  drivers: number;
+  routes: number;
+  trips: number;
+}
+
+interface AssignmentLite {
+  id: number;
+  matriculaVehiculo?: string;
+  conductor?: string;
+  dniConductor?: string;
+  fechaInicio?: string;
+  fechaFinal?: string;
+  indefinido?: boolean;
+}
+
+interface FirstSeenMap {
+  vehicles: Record<string, string>;
+  drivers: Record<string, string>;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class FleetService {
-  private driversSubject = new BehaviorSubject<Driver[]>([
-    {
-      id: 1,
-      ci: '86051278901',
-      nombreCompleto: 'Juan Pérez Rodríguez',
-      telefono: '5234567890',
-      email: 'juan@example.com',
-      categorias: ['B', 'D', 'D-1'],
-      vehiculoId: 1
-    },
-    {
-      id: 2,
-      ci: '90122345678',
-      nombreCompleto: 'María García López',
-      telefono: '5367890123',
-      email: 'maria@example.com',
-      categorias: ['B', 'C', 'D-1'],
-      vehiculoId: null
-    }
-  ]);
+  private readonly API_URL = environment.apiUrl;
+  private readonly AUTH_URL = environment.authUrl;
+  private readonly FIRST_SEEN_KEY = 'fleet_first_seen';
 
-  private vehiclesSubject = new BehaviorSubject<FleetVehicle[]>([
-    { id: 1, matricula: 'ABC-1234', marca: 'Toyota', modelo: 'Prius', tipo: 'Híbrido (NiMH)', estado: 'Activo', conductorId: 1 },
-    { id: 2, matricula: 'XYZ-5678', marca: 'Tesla', modelo: 'Model 3', tipo: 'Fosfato de Hierro y Litio (LFP)', estado: 'Activo', conductorId: null },
-    { id: 3, matricula: 'DEF-9012', marca: 'BYD', modelo: 'Seal', tipo: 'Blade Battery (LFP)', estado: 'Mantenimiento', conductorId: null }
-  ]);
+  private readonly licenseToBackend: Record<string, string> = {
+    'A-1': 'A1',
+    'C-1': 'C1',
+    'D-1': 'D1',
+    'F-E': 'FE'
+  };
+
+  private readonly licenseToFrontend: Record<string, string> = {
+    A1: 'A-1',
+    C1: 'C-1',
+    D1: 'D-1',
+    FE: 'F-E'
+  };
+
+  private driversSubject = new BehaviorSubject<Driver[]>([]);
+  private vehiclesSubject = new BehaviorSubject<FleetVehicle[]>([]);
+  private assignments: AssignmentLite[] = [];
 
   readonly drivers$ = this.driversSubject.asObservable();
   readonly vehicles$ = this.vehiclesSubject.asObservable();
 
-  constructor(private auditService: AuditService) { }
-
-  addDriver(driver: Omit<Driver, 'id' | 'vehiculoId'>) {
-    const drivers = [...this.driversSubject.getValue()];
-    const newDriver: Driver = {
-      ...driver,
-      id: Date.now(),
-      vehiculoId: null
-    };
-    drivers.unshift(newDriver);
-    this.driversSubject.next(drivers);
-    this.auditService.logAction('CREAR', 'CONDUCTOR', `Conductor agregado: ${newDriver.nombreCompleto} (CI: ${newDriver.ci})`);
-  }
-
-  updateDriver(updatedDriver: Driver) {
-    const drivers = this.driversSubject.getValue().map(d =>
-      d.id === updatedDriver.id ? updatedDriver : d
-    );
-    this.driversSubject.next(drivers);
-    this.auditService.logAction('ACTUALIZAR', 'CONDUCTOR', `Conductor actualizado: ${updatedDriver.nombreCompleto}`);
-  }
-
-  deleteDriver(driverId: number) {
-    const drivers = this.driversSubject.getValue().filter(d => d.id !== driverId);
-    const driver = this.driversSubject.getValue().find(d => d.id === driverId);
-    this.driversSubject.next(drivers);
-    if (driver) {
-      this.auditService.logAction('ELIMINAR', 'CONDUCTOR', `Conductor eliminado: ${driver.nombreCompleto}`);
-    }
-
-    // Desasignar vehículo si tenía uno
-    const vehicles = this.vehiclesSubject.getValue().map(v =>
-      v.conductorId === driverId ? { ...v, conductorId: null } : v
-    );
-    this.vehiclesSubject.next(vehicles);
-  }
-
-  addVehicle(vehicle: Omit<FleetVehicle, 'id' | 'conductorId'>) {
-    const vehicles = [...this.vehiclesSubject.getValue()];
-    const newVehicle: FleetVehicle = {
-      ...vehicle,
-      id: Date.now(),
-      conductorId: null,
-      estado: 'Activo'
-    };
-    vehicles.unshift(newVehicle);
-    this.vehiclesSubject.next(vehicles);
-    this.auditService.logAction('CREAR', 'VEHICULO', `Vehículo agregado: ${newVehicle.marca} ${newVehicle.modelo} (${newVehicle.matricula})`);
-  }
-
-  updateVehicle(updatedVehicle: FleetVehicle) {
-    const vehicles = this.vehiclesSubject.getValue().map(v =>
-      v.id === updatedVehicle.id ? updatedVehicle : v
-    );
-    this.vehiclesSubject.next(vehicles);
-    this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Vehículo actualizado: ${updatedVehicle.matricula}`);
-  }
-
-  deleteVehicle(vehicleId: number) {
-    const vehicles = this.vehiclesSubject.getValue().filter(v => v.id !== vehicleId);
-    const vehicle = this.vehiclesSubject.getValue().find(v => v.id === vehicleId);
-    this.vehiclesSubject.next(vehicles);
-    if (vehicle) {
-      this.auditService.logAction('ELIMINAR', 'VEHICULO', `Vehículo eliminado: ${vehicle.matricula}`);
-    }
-
-    // Desasignar conductor si tenía uno
-    const drivers = this.driversSubject.getValue().map(d =>
-      d.vehiculoId === vehicleId ? { ...d, vehiculoId: null } : d
-    );
-    this.driversSubject.next(drivers);
-  }
-
-  assignVehicleToDriver(driverId: number, vehicleId: number | null) {
-    this.applyAssignment(driverId, vehicleId);
-  }
-
-  assignDriverToVehicle(vehicleId: number, driverId: number | null) {
-    this.applyAssignment(driverId, vehicleId);
-  }
-
-  private applyAssignment(driverId: number | null, vehicleId: number | null) {
-    const drivers = this.cloneDrivers();
-    const vehicles = this.cloneVehicles();
-
-    const driver = driverId ? drivers.find(d => d.id === driverId) ?? null : null;
-    const vehicle = vehicleId ? vehicles.find(v => v.id === vehicleId) ?? null : null;
-    const changeTargets: Array<{ vehicle: FleetVehicle; previousDriverId: number | null }> = [];
-
-    if (vehicle) {
-      changeTargets.push({ vehicle, previousDriverId: vehicle.conductorId ?? null });
-    }
-
-    if (driver && driver.vehiculoId && driver.vehiculoId !== vehicleId) {
-      const previousVehicle = vehicles.find(v => v.id === driver.vehiculoId);
-      if (previousVehicle) {
-        const alreadyTracked = changeTargets.some(target => target.vehicle.id === previousVehicle.id);
-        if (!alreadyTracked) {
-          changeTargets.push({
-            vehicle: previousVehicle,
-            previousDriverId: previousVehicle.conductorId ?? null
-          });
-        }
-        previousVehicle.conductorId = null;
-      }
-    }
-
-    if (vehicle && vehicle.conductorId && vehicle.conductorId !== driverId) {
-      const previousDriver = drivers.find(d => d.id === vehicle.conductorId);
-      if (previousDriver) {
-        previousDriver.vehiculoId = null;
-      }
-    }
-
-    if (driver) {
-      driver.vehiculoId = vehicle ? vehicle.id : null;
-    }
-
-    if (vehicle) {
-      vehicle.conductorId = driver ? driver.id : null;
-    }
-
-    this.driversSubject.next(drivers);
-    this.vehiclesSubject.next(vehicles);
-    this.persistDriverChangeEvents(changeTargets, drivers);
-  }
-
-  private cloneDrivers(): Driver[] {
-    return this.driversSubject.getValue().map(driver => ({
-      ...driver,
-      categorias: [...driver.categorias],
-      vehiculoId: driver.vehiculoId
-    }));
-  }
-
-  private cloneVehicles(): FleetVehicle[] {
-    return this.vehiclesSubject.getValue().map(vehicle => ({ ...vehicle }));
-  }
-
-  private persistDriverChangeEvents(
-    targets: Array<{ vehicle: FleetVehicle; previousDriverId: number | null }>,
-    drivers: Driver[]
+  constructor(
+    private http: HttpClient,
+    private auditService: AuditService,
+    private authService: AuthService
   ) {
-    targets.forEach(({ vehicle, previousDriverId }) => {
-      const newDriverId = vehicle.conductorId ?? null;
-      if (newDriverId === previousDriverId) {
+    this.authService.currentUser$.pipe(
+      switchMap(() => this.refreshDataFromBackend().pipe(
+        catchError((err) => {
+          console.warn('No se pudo cargar la flota desde el backend:', err);
+          return of({ vehicles: this.vehiclesSubject.getValue(), drivers: this.driversSubject.getValue() });
+        })
+      ))
+    ).subscribe();
+  }
+
+  refreshDataFromBackend(): Observable<{ vehicles: FleetVehicle[]; drivers: Driver[] }> {
+    return forkJoin({
+      vehicles: this.http.get<any[]>(`${this.API_URL}/Vehiculo/v1/listartodo`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+        catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudieron cargar los vehículos')))
+      ),
+      drivers: this.http.get<any[]>(`${this.API_URL}/Conductor/v1/listar`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+        catchError(() => of([] as any[]))
+      ),
+      assignments: this.http.get<AssignmentLite[]>(`${this.API_URL}/Asignacion/v1/listar`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+        catchError(() => of([] as AssignmentLite[]))
+      )
+    }).pipe(
+      tap(({ vehicles, drivers, assignments }) => {
+        const mappedDrivers = (drivers || []).map((d: any) => this.mapDriver(d));
+        const mappedVehicles = (vehicles || []).map((v: any) => this.mapVehicle(v));
+        this.assignments = assignments || [];
+        this.linkAssignments(mappedVehicles, mappedDrivers, this.assignments);
+        this.rememberExistingIds(mappedVehicles, mappedDrivers);
+        this.vehiclesSubject.next(mappedVehicles);
+        this.driversSubject.next(mappedDrivers);
+      }),
+      map(({ vehicles, drivers }) => ({
+        vehicles: this.vehiclesSubject.getValue(),
+        drivers: this.driversSubject.getValue(),
+        rawVehicles: vehicles,
+        rawDrivers: drivers
+      })),
+      catchError((err) => {
+        console.warn('Backend de flota no disponible:', err);
+        return throwError(() => err);
+      })
+    );
+  }
+
+  fetchVehicles(): Observable<FleetVehicle[]> {
+    return this.refreshDataFromBackend().pipe(map(res => res.vehicles));
+  }
+
+  fetchDrivers(): Observable<Driver[]> {
+    return this.refreshDataFromBackend().pipe(map(res => res.drivers));
+  }
+
+  addDriver(driver: Omit<Driver, 'id' | 'vehiculoId'>): Observable<Driver> {
+    const names = this.splitName(driver.nombreCompleto);
+    const email = (driver.email || '').trim().toLowerCase();
+    const accountPayload = {
+      nombreUsuario: email,
+      password: driver.ci,
+      email,
+      dni: driver.ci,
+      nombre: names.nombre,
+      apellidos: names.apellidos,
+      categoriasLicencia: this.toBackendLicenses(driver.categorias),
+      disponibilidad: true
+    };
+    const gestionPayload = {
+      dni: driver.ci,
+      usuarioId: crypto.randomUUID(),
+      nombre: names.nombre,
+      apellidos: names.apellidos,
+      categoriasLicencia: this.toBackendLicenses(driver.categorias),
+      disponibilidad: true,
+      email,
+      telefono: driver.telefono,
+      direccion: driver.direccion
+    };
+
+    return this.http.post(`${this.AUTH_URL}/registrar-driver`, accountPayload).pipe(
+      catchError((err: HttpErrorResponse) => {
+        if (err.status === 404 || err.status === 403 || err.status === 409) {
+          return of(null);
+        }
+        return throwError(() => this.toUserError(err, 'No se pudo crear la cuenta del conductor'));
+      }),
+      switchMap(() => this.http.post<any>(`${this.API_URL}/Conductor/v1/registrar`, gestionPayload).pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (err.status === 409 || err.status === 400) {
+            return of(null);
+          }
+          return throwError(() => this.toUserError(err, 'No se pudo registrar el conductor'));
+        })
+      )),
+      switchMap(() => this.refreshDataFromBackend()),
+      map(() => {
+        const created = this.driversSubject.getValue().find(d => d.ci === driver.ci);
+        if (!created) {
+          throw new Error('El conductor se registró pero no aparece en el listado.');
+        }
+        this.markCreated('drivers', created.id);
+        this.auditService.logAction('CREAR', 'CONDUCTOR', `Conductor agregado: ${created.nombreCompleto} (CI: ${created.ci})`);
+        return created;
+      }),
+      catchError((err: HttpErrorResponse | Error) => throwError(() => this.toUserError(err, 'No se pudo registrar el conductor')))
+    );
+  }
+
+  updateDriver(updatedDriver: Driver): Observable<Driver> {
+    const names = this.splitName(updatedDriver.nombreCompleto);
+    const payload = {
+      dni: updatedDriver.ci,
+      nombre: names.nombre,
+      apellidos: names.apellidos,
+      categoriasLicencia: this.toBackendLicenses(updatedDriver.categorias),
+      disponibilidad: true,
+      email: (updatedDriver.email || '').trim().toLowerCase(),
+      telefono: updatedDriver.telefono,
+      direccion: updatedDriver.direccion
+    };
+
+    return this.http.patch(`${this.API_URL}/Conductor/v1/actualizar/${updatedDriver.id}`, payload).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      tap(() => this.auditService.logAction('ACTUALIZAR', 'CONDUCTOR', `Conductor actualizado: ${updatedDriver.nombreCompleto}`)),
+      map(() => this.driversSubject.getValue().find(d => d.id === updatedDriver.id) || updatedDriver),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo actualizar el conductor')))
+    );
+  }
+
+  deleteDriver(driverId: number): Observable<void> {
+    const driver = this.driversSubject.getValue().find(d => d.id === driverId);
+    return this.http.delete(`${this.API_URL}/Conductor/v1/eliminar/${driverId}`).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      tap(() => {
+        if (driver) {
+          this.auditService.logAction('ELIMINAR', 'CONDUCTOR', `Conductor eliminado: ${driver.nombreCompleto}`);
+        }
+      }),
+      map(() => void 0),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo eliminar el conductor')))
+    );
+  }
+
+  addVehicle(vehicle: Omit<FleetVehicle, 'id' | 'conductorId'>): Observable<FleetVehicle> {
+    const payload = {
+      matricula: (vehicle.matricula || '').trim().toUpperCase(),
+      marca: vehicle.marca,
+      modelo: vehicle.modelo,
+      tipoBateria: vehicle.tipo,
+      estado: 'ACTIVO',
+      capacidadPersonas: vehicle.capacidad || 4
+    };
+
+    return this.http.post<any>(`${this.API_URL}/Vehiculo/v1/registrar`, payload).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      map(() => {
+        const created = this.vehiclesSubject.getValue().find(v => v.matricula.toUpperCase() === payload.matricula);
+        if (!created) {
+          throw new Error('El vehículo se registró pero no aparece en el listado.');
+        }
+        this.markCreated('vehicles', created.id);
+        this.auditService.logAction('CREAR', 'VEHICULO', `Vehículo agregado: ${created.marca} ${created.modelo} (${created.matricula})`);
+        return created;
+      }),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo registrar el vehículo')))
+    );
+  }
+
+  updateVehicle(updatedVehicle: FleetVehicle): Observable<FleetVehicle> {
+    const payload = {
+      matricula: (updatedVehicle.matricula || '').trim().toUpperCase(),
+      marca: updatedVehicle.marca,
+      modelo: updatedVehicle.modelo,
+      tipoBateria: updatedVehicle.tipo,
+      capacidadPersonas: updatedVehicle.capacidad || 4
+    };
+
+    return this.http.patch(`${this.API_URL}/Vehiculo/v1/actualizar/${updatedVehicle.id}`, payload).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      tap(() => this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Vehículo actualizado: ${updatedVehicle.matricula}`)),
+      map(() => this.vehiclesSubject.getValue().find(v => v.id === updatedVehicle.id) || updatedVehicle),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo actualizar el vehículo')))
+    );
+  }
+
+  deleteVehicle(vehicleId: number): Observable<void> {
+    const vehicle = this.vehiclesSubject.getValue().find(v => v.id === vehicleId);
+    return this.http.delete(`${this.API_URL}/Vehiculo/v1/eliminar/${vehicleId}`).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      tap(() => {
+        if (vehicle) {
+          this.auditService.logAction('ELIMINAR', 'VEHICULO', `Vehículo eliminado: ${vehicle.matricula}`);
+        }
+      }),
+      map(() => void 0),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo eliminar el vehículo')))
+    );
+  }
+
+  assignVehicleToDriver(driverId: number, vehicleId: number | null): Observable<unknown> {
+    return this.applyAssignment(driverId, vehicleId);
+  }
+
+  assignDriverToVehicle(vehicleId: number, driverId: number | null): Observable<unknown> {
+    return this.applyAssignment(driverId, vehicleId);
+  }
+
+  getVehicles(): FleetVehicle[] {
+    return this.vehiclesSubject.getValue();
+  }
+
+  findAssignedVehicle(user: { id?: string; username?: string; email?: string } | null): FleetVehicle | null {
+    const driver = this.findDriverForUser(user);
+    if (!driver) {
+      return null;
+    }
+    return this.vehiclesSubject.getValue().find(v =>
+      v.id === driver.vehiculoId || v.conductorId === driver.id
+    ) ?? null;
+  }
+
+  updateDriverVehicleStatus(status: DriverVehicleStatus): Observable<FleetVehicle> {
+    const user = this.authService.getCurrentUser();
+    const vehicle = this.findAssignedVehicle(user);
+    const gestion$ = this.http.patch<any>(`${environment.gatewayUrl}/conductor/Vehiculo/v1/estado`, { estado: status });
+    const telemetria$ = vehicle
+      ? this.http.post(`${environment.telemetriaUrl}/v1/estado/cambiar`, {
+          vehiculoId: String(vehicle.id),
+          nuevoEsatado: telemetryEstadoIndex(status)
+        }).pipe(catchError(() => of(null)))
+      : of(null);
+
+    return forkJoin({ gestion: gestion$, telemetria: telemetria$ }).pipe(
+      switchMap(() => this.refreshDataFromBackend()),
+      map(() => {
+        const updated = this.findAssignedVehicle(this.authService.getCurrentUser());
+        if (!updated) {
+          throw new Error('El estado se guardó pero el vehículo no aparece en el listado.');
+        }
+        this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Estado operativo: ${updated.matricula} → ${status}`);
+        return updated;
+      }),
+      catchError((err: HttpErrorResponse | Error) => throwError(() => this.toUserError(err, 'No se pudo actualizar el estado del ecomóvil')))
+    );
+  }
+
+  getWeeklyStats(): WeeklyStats {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const seen = this.readFirstSeen();
+    const countRecent = (bucket: Record<string, string>) =>
+      Object.values(bucket).filter(iso => new Date(iso).getTime() >= weekAgo).length;
+
+    const trips = this.assignments.filter(a => {
+      if (!a.fechaInicio) {
+        return false;
+      }
+      return new Date(a.fechaInicio).getTime() >= weekAgo;
+    }).length;
+
+    return {
+      vehicles: countRecent(seen.vehicles),
+      drivers: countRecent(seen.drivers),
+      routes: 0,
+      trips
+    };
+  }
+
+  findDriverForUser(user: { id?: string; username?: string; email?: string } | null): Driver | null {
+    if (!user) {
+      return null;
+    }
+    const username = (user.username || '').toLowerCase();
+    const email = (user.email || user.username || '').toLowerCase();
+    return this.driversSubject.getValue().find(d =>
+      (user.id && d.usuarioId === user.id) ||
+      (d.email && d.email.toLowerCase() === email) ||
+      (d.ci && username.includes(d.ci))
+    ) ?? null;
+  }
+
+  private applyAssignment(driverId: number | null, vehicleId: number | null): Observable<unknown> {
+    if (driverId && vehicleId) {
+      const assignmentPayload = {
+        vehiculoId: vehicleId,
+        conductorId: driverId,
+        fechaInicio: new Date().toISOString().split('T')[0],
+        indefinido: true
+      };
+      return this.http.post(`${this.API_URL}/Asignacion/v1`, assignmentPayload).pipe(
+        switchMap(() => this.refreshDataFromBackend()),
+        tap(() => {
+          const drivers = this.driversSubject.getValue();
+          const vehicles = this.vehiclesSubject.getValue();
+          const driver = drivers.find(d => d.id === driverId);
+          const vehicle = vehicles.find(v => v.id === vehicleId);
+          if (driver && vehicle) {
+            this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Asignación: ${driver.nombreCompleto} → ${vehicle.matricula}`);
+          }
+        }),
+        catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo guardar la asignación')))
+      );
+    }
+
+    return this.refreshDataFromBackend();
+  }
+
+  private mapVehicle(v: any): FleetVehicle {
+    return {
+      id: v.id,
+      matricula: v.matricula || v.placa || '',
+      marca: v.marca || 'Genérica',
+      modelo: v.modelo || 'EV',
+      tipo: v.tipoBateria || v.tipo || 'Eléctrico',
+      estado: v.estado || 'ACTIVO',
+      capacidad: v.capacidadPersonas,
+      conductorId: v.conductorId ?? null,
+      imeiDispositivoGps: v.imeiDispositivoGps || v.imei_dispositivo_gps || null
+    };
+  }
+
+  private mapDriver(d: any): Driver {
+    return {
+      id: d.id,
+      usuarioId: d.usuarioId,
+      ci: d.dni || d.ci || '',
+      nombreCompleto: d.nombreCompleto || `${d.nombre || ''} ${d.apellidos || d.apellido || ''}`.trim(),
+      telefono: d.telefono || '',
+      email: d.email || '',
+      direccion: d.direccion || '',
+      categorias: this.toFrontendLicenses(d.categoriasLicencia || d.categorias || []),
+      vehiculoId: d.vehiculoId ?? null
+    };
+  }
+
+  private linkAssignments(vehicles: FleetVehicle[], drivers: Driver[], assignments: AssignmentLite[]) {
+    vehicles.forEach(v => v.conductorId = null);
+    drivers.forEach(d => d.vehiculoId = null);
+
+    assignments.forEach(a => {
+      const ended = a.fechaFinal && new Date(a.fechaFinal) < new Date();
+      if (ended && !a.indefinido) {
         return;
       }
-
-      const payload: DriverChangePayload = {
-        vehicleId: vehicle.id,
-        incomingDriverId: newDriverId,
-        outgoingDriverId: previousDriverId,
-        incomingDriverName: newDriverId
-          ? (drivers.find(d => d.id === newDriverId)?.nombreCompleto ?? null)
-          : null,
-        outgoingDriverName: previousDriverId
-          ? (drivers.find(d => d.id === previousDriverId)?.nombreCompleto ?? null)
-          : null,
-        changedAt: new Date().toISOString()
-      };
-
-      this.sendDriverChangeToDatabase(payload);
+      const vehicle = vehicles.find(v => v.matricula === a.matriculaVehiculo);
+      const driver = drivers.find(d => d.ci === a.dniConductor);
+      if (vehicle && driver) {
+        vehicle.conductorId = driver.id;
+        driver.vehiculoId = vehicle.id;
+      }
     });
   }
 
-  private sendDriverChangeToDatabase(payload: DriverChangePayload) {
-    // Aquí se podría realizar la llamada HTTP real hacia la API/BD.
-    console.log('Registro de cambio de conductor listo para guardar:', payload);
+  private splitName(fullName: string): { nombre: string; apellidos: string } {
+    const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+    return {
+      nombre: parts[0] || 'Nombre',
+      apellidos: parts.slice(1).join(' ') || 'Apellido'
+    };
+  }
 
-    let message = '';
-    if (payload.incomingDriverName && payload.outgoingDriverName) {
-      message = `Cambio de conductor en ${payload.vehicleId}: Sale ${payload.outgoingDriverName}, entra ${payload.incomingDriverName}`;
-    } else if (payload.incomingDriverName) {
-      message = `Asignación de conductor en ${payload.vehicleId}: ${payload.incomingDriverName}`;
-    } else if (payload.outgoingDriverName) {
-      message = `Desasignación de conductor en ${payload.vehicleId}: Sale ${payload.outgoingDriverName}`;
-    }
+  private toBackendLicenses(codes: string[]): string[] {
+    return (codes || []).map(code => this.licenseToBackend[code] || code.replace('-', ''));
+  }
 
-    if (message) {
-      this.auditService.logAction('ACTUALIZAR', 'VEHICULO', message);
+  private toFrontendLicenses(codes: string[]): string[] {
+    return (codes || []).map(code => this.licenseToFrontend[code] || code);
+  }
+
+  private rememberExistingIds(vehicles: FleetVehicle[], drivers: Driver[]) {
+    const seen = this.readFirstSeen();
+    const seeded = Object.keys(seen.vehicles).length === 0 && Object.keys(seen.drivers).length === 0;
+    const stamp = seeded ? new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() : new Date().toISOString();
+
+    vehicles.forEach(v => {
+      if (!seen.vehicles[String(v.id)]) {
+        seen.vehicles[String(v.id)] = stamp;
+      }
+    });
+    drivers.forEach(d => {
+      if (!seen.drivers[String(d.id)]) {
+        seen.drivers[String(d.id)] = stamp;
+      }
+    });
+    this.writeFirstSeen(seen);
+  }
+
+  private markCreated(kind: 'vehicles' | 'drivers', id: number) {
+    const seen = this.readFirstSeen();
+    seen[kind][String(id)] = new Date().toISOString();
+    this.writeFirstSeen(seen);
+  }
+
+  private readFirstSeen(): FirstSeenMap {
+    try {
+      const raw = localStorage.getItem(this.FIRST_SEEN_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {
+      // ignore corrupt storage
     }
+    return { vehicles: {}, drivers: {} };
+  }
+
+  private writeFirstSeen(data: FirstSeenMap) {
+    localStorage.setItem(this.FIRST_SEEN_KEY, JSON.stringify(data));
+  }
+
+  private toUserError(err: HttpErrorResponse | Error, fallback: string): Error {
+    const body = (err as HttpErrorResponse)?.error;
+    const message = body?.mensage || body?.message || body?.error || (err as Error)?.message || fallback;
+    return new Error(typeof message === 'string' ? message : fallback);
   }
 }
-
-

@@ -1,10 +1,12 @@
 <app-layout>
   <div header-title>Dashboard</div>
-  <div header-subtitle>Vista general del sistema Ecomovil</div>
+  <div header-subtitle>{{ isAdmin ? 'Panel de administración' : (isLoggedIn ? 'Panel del conductor' : 'Consulta pública de la flota') }}</div>
 
   <!-- Stats Cards -->
   <section class="stats-section">
-    <div class="stats-grid">
+    <div class="stats-grid" [class.stats-grid-3]="!isAdmin">
+
+      <!-- Vehículos Activos: todos los roles -->
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-car"></i>
@@ -12,21 +14,27 @@
         <div class="stat-content">
           <h3>{{ stats.vehicles }}</h3>
           <p>Vehículos Activos</p>
-          <span class="stat-change positive">+2 esta semana</span>
+          <span class="stat-change" *ngIf="isAdmin"
+            [class.positive]="weekly.vehicles > 0"
+            [class.neutral]="weekly.vehicles === 0">{{ weeklyLabel(weekly.vehicles) }}</span>
         </div>
       </div>
 
-      <div class="stat-card">
+      <!-- Conductores: solo admin -->
+      <div class="stat-card" *ngIf="isAdmin">
         <div class="stat-icon">
           <i class="fas fa-user-tie"></i>
         </div>
         <div class="stat-content">
           <h3>{{ stats.drivers }}</h3>
           <p>Conductores</p>
-          <span class="stat-change positive">+1 esta semana</span>
+          <span class="stat-change"
+            [class.positive]="weekly.drivers > 0"
+            [class.neutral]="weekly.drivers === 0">{{ weeklyLabel(weekly.drivers) }}</span>
         </div>
       </div>
 
+      <!-- Rutas Configuradas: todos los roles -->
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-route"></i>
@@ -34,10 +42,13 @@
         <div class="stat-content">
           <h3>{{ stats.routes }}</h3>
           <p>Rutas Configuradas</p>
-          <span class="stat-change neutral">Sin cambios</span>
+          <span class="stat-change" *ngIf="isAdmin"
+            [class.positive]="weekly.routes > 0"
+            [class.neutral]="weekly.routes === 0">{{ weeklyLabel(weekly.routes) }}</span>
         </div>
       </div>
 
+      <!-- Viajes en Curso: todos los roles -->
       <div class="stat-card">
         <div class="stat-icon">
           <i class="fas fa-map-marker-alt"></i>
@@ -45,11 +56,15 @@
         <div class="stat-content">
           <h3>{{ stats.activeTrips }}</h3>
           <p>Viajes en Curso</p>
-          <span class="stat-change positive">+3 hoy</span>
+          <span class="stat-change" *ngIf="isAdmin"
+            [class.positive]="weekly.trips > 0"
+            [class.neutral]="weekly.trips === 0">{{ weeklyLabel(weekly.trips) }}</span>
         </div>
       </div>
+
     </div>
   </section>
+
 
 
   <!-- Dashboard Content -->
@@ -74,6 +89,11 @@
       </div>
       <div class="card-content">
         <div class="live-map" #mapWrapper id="map"></div>
+        <div class="map-legend">
+          <span class="legend-item"><i style="background:#22c55e"></i> Trabajando</span>
+          <span class="legend-item"><i style="background:#eab308"></i> No disponible</span>
+          <span class="legend-item"><i style="background:#ef4444"></i> Roto</span>
+        </div>
       </div>
     </div>
   </section>

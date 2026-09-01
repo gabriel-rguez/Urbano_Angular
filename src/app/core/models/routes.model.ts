@@ -30,6 +30,9 @@ export interface Vehicle {
   color?: string;
   velocidad?: number;
   gpsActivo?: boolean; // Indica si el GPS está activo y el vehículo es rastreable
+  conductorId?: number | null; // ID del conductor asignado (de la BD)
+  matricula?: string; // Matrícula/placa del vehículo
+  imeiDispositivoGps?: string | null; // Identificador del dispositivo GPS, si existe en la BD
 }
 
 export interface ChargingStation {

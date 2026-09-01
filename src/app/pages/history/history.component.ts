@@ -35,7 +35,8 @@ export class HistoryComponent implements OnInit {
             this.router.navigate(['/home']);
             return;
         }
-
+        // Forzar recarga de logs al iniciar
+        this.auditService.getLogs().subscribe();
         this.auditService.logs$.subscribe(logs => {
             this.logs = logs;
             this.applyFilters();

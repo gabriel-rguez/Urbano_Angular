@@ -31,6 +31,7 @@ export class AdminSupportComponent implements OnInit, AfterViewChecked {
     ) { }
 
     ngOnInit() {
+        // Forzar recarga de conversaciones y reportes al iniciar
         this.chatService.getConversations().subscribe(convs => {
             this.conversations = convs;
             // Si hay una conversación seleccionada, actualizar sus datos (contador, etc)

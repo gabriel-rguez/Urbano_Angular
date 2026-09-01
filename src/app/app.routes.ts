@@ -34,6 +34,12 @@ export const routes: Routes = [
     data: { roles: ['admin'] } // Solo admin
   },
   { path: 'driver-issues', component: DriverIssuesComponent, canActivate: [AuthGuard], data: { roles: ['driver'] } },
+  {
+    path: 'estado',
+    loadComponent: () => import('./pages/driver-status/driver-status.component').then(m => m.DriverStatusComponent),
+    canActivate: [AuthGuard],
+    data: { roles: ['driver'] }
+  },
   { path: 'settings', component: SettingsComponent, canActivate: [AuthGuard], data: { roles: ['admin', 'driver'] } },
 
   {

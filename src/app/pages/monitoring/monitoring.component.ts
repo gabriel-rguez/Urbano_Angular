@@ -2,10 +2,13 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, Hos
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/layout/layout.component';
 import * as L from 'leaflet';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest } from 'rxjs';
 import { PlannedRoute, RouteStatus, Vehicle, ChargingStation } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { TelemetryService } from '../../core/services/telemetry.service';
+import { FleetService } from '../../core/services/fleet.service';
+import { fallbackParkingPosition, vehicleStatusColor, vehicleStatusLabel, normalizeVehicleStatus } from '../../core/utils/vehicle-status';
 
 @Component({
   selector: 'app-monitoring',
@@ -26,10 +29,10 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
   private terminalMarkers: L.Marker[] = [];
   private stopMarkers: L.Marker[] = [];
   private vehicleMarkers: L.Marker[] = [];
-  private stationMarkers: L.Marker[] = []; // New
+  private stationMarkers: L.Marker[] = [];
 
   plannedRoutes: PlannedRoute[] = [];
-  stations: ChargingStation[] = []; // Typed correctly
+  stations: ChargingStation[] = [];
   vehicles: Vehicle[] = [];
   vehicleSlideIndex = 0;
   routeSlideIndex = 0;
@@ -70,34 +73,58 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
   fullscreenActive = false;
   isRefreshing = false;
   refreshError = '';
-  readonly defaultCenter: L.LatLngExpression = [21.9667, -79.4333]; // Municipio Sancti Spíritus, Cuba
+  readonly defaultCenter: L.LatLngExpression = [21.9667, -79.4333];
   readonly defaultZoom = 12;
 
   constructor(
     private routesService: RoutesService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private telemetryService: TelemetryService,
+    private fleetService: FleetService
   ) { }
 
   ngOnInit() {
-    // Configurar iconos de Leaflet
     this.setupLeafletIcons();
-    this.routesSub = this.routesService.routes$.subscribe(routes => {
+    // Forzar recarga de rutas y vehículos al iniciar
+    this.routesService.fetchRoutesFromBackend().subscribe();
+    this.fleetService.refreshDataFromBackend().subscribe();
+    this.routesSub = this.routesService.routes$.subscribe((routes: PlannedRoute[]) => {
       this.plannedRoutes = routes;
       this.clampRouteSlide();
       this.renderNetwork();
     });
-    this.vehiclesSub = this.routesService.vehicles$.subscribe(vehicles => {
-      this.vehicles = vehicles;
+    this.vehiclesSub = combineLatest([
+      this.fleetService.vehicles$,
+      this.fleetService.drivers$,
+      this.telemetryService.positions$
+    ]).subscribe(([fleet, drivers, positions]) => {
+      this.vehicles = fleet.map(v => {
+        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? positions.get(v.imeiDispositivoGps) : undefined);
+        const parking = fallbackParkingPosition(v.id);
+        const estado = gps?.estado || v.estado;
+        return {
+          id: v.id,
+          unidad: v.matricula || `V-${v.id}`,
+          matricula: v.matricula,
+          conductor: drivers.find(d => d.id === v.conductorId)?.nombreCompleto || 'Sin asignar',
+          conductorId: v.conductorId,
+          estado,
+          lat: gps?.lat || parking.lat,
+          lng: gps?.lng || parking.lng,
+          color: vehicleStatusColor(estado),
+          velocidad: gps?.velocidad ?? 0,
+          gpsActivo: !!gps,
+          imeiDispositivoGps: v.imeiDispositivoGps
+        };
+      });
       this.clampVehicleSlide();
       this.renderNetwork();
     });
-    // Subscribe to stations
-    this.routesService.stations$.subscribe(stations => {
+    this.routesService.stations$.subscribe((stations: ChargingStation[]) => {
       this.stations = stations;
       this.renderNetwork();
     });
 
-    // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
     });
@@ -298,7 +325,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     this.plannedRoutes.forEach(route => {
-      if (!route.polyline.length) {
+      if (!route.polyline || route.polyline.length < 2) {
         return;
       }
       const routeColor = route.color || '#efb810';
@@ -397,13 +424,15 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     this.vehicles.forEach(vehicle => {
-      const isActive = vehicle.gpsActivo !== false; // Por defecto activo si no se especifica
-      // Icono pequeño con círculo de fondo y icono de carro dentro
-      // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
-      const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
+      if (!vehicle.lat || !vehicle.lng) {
+        return;
+      }
+      const status = normalizeVehicleStatus(vehicle.estado);
+      const isActive = status === 'TRABAJANDO';
+      const iconSize = 32;
       const centerPoint = iconSize / 2;
 
-      const circleColor = isActive ? '#10b981' : '#6b7280';
+      const circleColor = vehicleStatusColor(vehicle.estado);
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
         html: `
@@ -424,7 +453,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
         <div class="vehicle-popup">
           <strong>${vehicle.unidad}</strong><br>
           Conductor: ${vehicle.conductor}<br>
-          Estado: ${vehicle.estado}<br>
+          Estado: ${vehicleStatusLabel(vehicle.estado)}<br>
           GPS: ${isActive ? '<span style="color: #10b981;">● Activo</span>' : '<span style="color: #6b7280;">○ Inactivo</span>'}${vehicle.velocidad !== undefined ? `<br>Velocidad: ${vehicle.velocidad} km/h` : ''}
         </div>
       `);
@@ -530,9 +559,13 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
     this.refreshError = '';
     this.isRefreshing = true;
     try {
-      const { routes, vehicles } = await this.routesService.refreshData();
+      const { routes } = await this.routesService.refreshData();
       this.plannedRoutes = routes;
-      this.vehicles = vehicles;
+      this.fleetService.refreshDataFromBackend().subscribe({
+        error: () => {
+          this.refreshError = 'No se pudo actualizar la flota.';
+        }
+      });
       this.renderNetwork();
     } catch (error) {
       console.error('No se pudo actualizar el mapa de monitoreo', error);

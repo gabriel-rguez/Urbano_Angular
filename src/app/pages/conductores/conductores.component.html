@@ -26,7 +26,8 @@
           <div class="form-group">
             <label for="nombreCompleto">Nombre completo (Nombre y apellidos)</label>
             <input type="text" id="nombreCompleto" name="nombreCompleto" [(ngModel)]="newDriver.nombreCompleto"
-              required>
+              required pattern="^[A-Za-zÁÉÍÓÚáéíóúñÑ\s]+$"
+              [ngClass]="{'error': driverForm.submitted && driverForm.controls['nombreCompleto'].invalid}">
           </div>
         </div>
 

@@ -75,7 +75,7 @@ export class SettingsComponent {
     this.loading = true;
     this.hideMessage();
 
-    this.authService.changePassword(this.currentPassword, this.newPassword).subscribe(success => {
+    this.authService.changePassword(this.currentPassword, this.newPassword).subscribe((success: boolean) => {
       this.loading = false;
       if (success) {
         this.showMessage('¡Contraseña cambiada exitosamente!', 'success');

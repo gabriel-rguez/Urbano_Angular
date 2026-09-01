@@ -60,6 +60,8 @@ export class ConductoresComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
+    // Forzar recarga de conductores y vehículos al iniciar
+    this.fleetService.refreshDataFromBackend().subscribe();
     this.subscriptions.add(
       this.fleetService.drivers$.subscribe(drivers => (this.drivers = drivers))
     );
@@ -89,16 +91,21 @@ export class ConductoresComponent implements OnInit, OnDestroy {
       this.driverForm.control.markAllAsTouched();
 
       const missingFields: string[] = [];
-      if (this.driverForm.controls['ci']?.errors) missingFields.push('CI');
-      if (this.driverForm.controls['nombreCompleto']?.errors) missingFields.push('Nombre Completo');
-      if (this.driverForm.controls['telefono']?.errors) missingFields.push('Teléfono');
-      if (this.driverForm.controls['email']?.errors) missingFields.push('Email');
-      if (this.driverForm.controls['direccion']?.errors) missingFields.push('Dirección');
+      const ciErrs = this.driverForm.controls['ci']?.errors;
+      if (ciErrs?.['required']) missingFields.push('CI (requerido)');
+      else if (ciErrs?.['pattern']) missingFields.push('CI (debe tener exactamente 11 números)');
+
+      const nameErrs = this.driverForm.controls['nombreCompleto']?.errors;
+      if (nameErrs?.['required']) missingFields.push('Nombre Completo (requerido)');
+      else if (nameErrs?.['pattern']) missingFields.push('Nombre Completo (debe contener solo letras y espacios)');
+
+      if (this.driverForm.controls['telefono']?.errors) missingFields.push('Teléfono (requerido / formato numérico)');
+      if (this.driverForm.controls['email']?.errors) missingFields.push('Email (requerido / formato de email)');
+      if (this.driverForm.controls['direccion']?.errors) missingFields.push('Dirección (requerida)');
 
       if (missingFields.length > 0) {
-        this.formError = `Faltan campos obligatorios o inválidos: ${missingFields.join(', ')}.`;
+        this.formError = `Datos incorrectos o faltantes:\n${missingFields.join('\n')}`;
       } else {
-        // Fallback genérico por si hay otro error no mapeado
         this.formError = 'Por favor, revisa los campos en rojo.';
       }
 
@@ -153,10 +160,15 @@ export class ConductoresComponent implements OnInit, OnDestroy {
         categorias: [...this.newDriver.categorias],
         direccion: this.newDriver.direccion,
         vehiculoId: this.getDriverVehicleId(this.editingId)
+      }).subscribe({
+        next: () => {
+          this.formSuccess = 'Conductor actualizado correctamente.';
+          this.cancelEdit();
+        },
+        error: (err) => {
+          this.formError = err?.message || 'No se pudo actualizar el conductor.';
+        }
       });
-      console.log('Driver updated.');
-      this.formSuccess = 'Conductor actualizado correctamente.';
-      this.cancelEdit();
     }
   }
 
@@ -166,6 +178,13 @@ export class ConductoresComponent implements OnInit, OnDestroy {
   }
 
   private createDriver() {
+    const nameParts = this.newDriver.nombreCompleto.trim().split(/\s+/);
+    if (nameParts.length < 2) {
+      this.formError = 'Escribe nombre y apellidos (al menos dos palabras).';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     this.fleetService.addDriver({
       ci: this.newDriver.ci,
       nombreCompleto: this.newDriver.nombreCompleto,
@@ -173,9 +192,16 @@ export class ConductoresComponent implements OnInit, OnDestroy {
       email: this.newDriver.email,
       categorias: [...this.newDriver.categorias],
       direccion: this.newDriver.direccion
+    }).subscribe({
+      next: () => {
+        this.formSuccess = `Conductor registrado. Puede entrar con el correo ${this.newDriver.email} y su CI (${this.newDriver.ci}) como contraseña inicial.`;
+        this.resetForm();
+      },
+      error: (err) => {
+        this.formError = err?.message || 'No se pudo registrar el conductor.';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     });
-    this.formSuccess = 'Conductor registrado correctamente (solo vista).';
-    this.resetForm();
   }
 
   cancelEdit() {
@@ -300,7 +326,11 @@ export class ConductoresComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.fleetService.assignVehicleToDriver(driverId, vehicleId);
+    this.fleetService.assignVehicleToDriver(driverId, vehicleId).subscribe({
+      error: (err) => {
+        this.formError = err?.message || 'No se pudo guardar la asignación.';
+      }
+    });
   }
 
   private async confirmVehicleAssignment(
@@ -406,8 +436,14 @@ export class ConductoresComponent implements OnInit, OnDestroy {
     });
 
     if (confirmed) {
-      this.fleetService.deleteDriver(driver.id);
-      this.formSuccess = 'Conductor eliminado correctamente.';
+      this.fleetService.deleteDriver(driver.id).subscribe({
+        next: () => {
+          this.formSuccess = 'Conductor eliminado correctamente.';
+        },
+        error: (err) => {
+          this.formError = err?.message || 'No se pudo eliminar el conductor.';
+        }
+      });
     }
   }
 }

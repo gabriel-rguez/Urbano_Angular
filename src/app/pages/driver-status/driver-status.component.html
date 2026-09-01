@@ -1,0 +1,42 @@
+<app-layout>
+  <div header-title>Estado</div>
+  <div header-subtitle>Estado operativo del ecomóvil</div>
+
+  <section class="status-page">
+    <div class="dashboard-card">
+      <div class="card-header">
+        <h3><i class="fas fa-traffic-light"></i> Estado del vehículo</h3>
+      </div>
+      <div class="card-content">
+        <p class="status-intro" *ngIf="vehicle">
+          Unidad <strong>{{ vehicle.matricula }}</strong> · estado actual:
+          <span class="current-pill" [style.background]="selectedColor">
+            {{ currentLabel }}
+          </span>
+        </p>
+        <p class="status-intro warning" *ngIf="!vehicle">
+          No tienes un ecomóvil asignado. Cuando te asignen uno podrás cambiar su estado aquí.
+        </p>
+
+        <div class="status-grid">
+          <button
+            type="button"
+            class="status-card"
+            *ngFor="let option of options"
+            [class.selected]="selected === option.value"
+            [style.--status-color]="option.color"
+            [disabled]="saving || !vehicle"
+            (click)="selectStatus(option.value)">
+            <span class="status-dot" [style.background]="option.color"></span>
+            <strong>{{ option.label }}</strong>
+            <small>{{ option.detail }}</small>
+          </button>
+        </div>
+
+        <p class="status-hint">Los colores coinciden con los del mapa: verde en servicio, amarillo no disponible y rojo averiado.</p>
+        <p class="status-message success" *ngIf="message">{{ message }}</p>
+        <p class="status-message error" *ngIf="error">{{ error }}</p>
+      </div>
+    </div>
+  </section>
+</app-layout>

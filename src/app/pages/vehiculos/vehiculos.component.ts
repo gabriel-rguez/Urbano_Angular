@@ -32,6 +32,8 @@ export class VehiculosComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit(): void {
+    // Forzar recarga de vehículos y conductores al iniciar
+    this.fleetService.refreshDataFromBackend().subscribe();
     this.subscriptions.add(
       this.fleetService.vehicles$.subscribe(vehicles => (this.vehicles = vehicles))
     );
@@ -59,12 +61,16 @@ export class VehiculosComponent implements OnInit, OnDestroy {
       this.vehicleForm.control.markAllAsTouched();
 
       const missingFields: string[] = [];
-      if (this.vehicleForm.controls['matricula']?.errors) missingFields.push('Matrícula');
-      if (this.vehicleForm.controls['marca']?.errors) missingFields.push('Marca');
-      if (this.vehicleForm.controls['modelo']?.errors) missingFields.push('Modelo');
-      if (this.vehicleForm.controls['tipo']?.errors) missingFields.push('Tipo de Batería');
+      const matErrors = this.vehicleForm.controls['matricula']?.errors;
+      if (matErrors) {
+        if (matErrors['required']) missingFields.push('Matrícula (requerida)');
+        if (matErrors['pattern']) missingFields.push('Matrícula (debe tener 1 letra y 6 números mínimos exactos, ej. M123456)');
+      }
+      if (this.vehicleForm.controls['marca']?.errors) missingFields.push('Marca (requerida)');
+      if (this.vehicleForm.controls['modelo']?.errors) missingFields.push('Modelo (requerido)');
+      if (this.vehicleForm.controls['tipo']?.errors) missingFields.push('Tipo de Batería (requerido)');
 
-      this.formError = `Por favor, completa los siguientes campos obligatorios: ${missingFields.join(', ')}.`;
+      this.formError = `Datos incorrectos:\n${missingFields.join('\n')}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -88,11 +94,17 @@ export class VehiculosComponent implements OnInit, OnDestroy {
       this.fleetService.updateVehicle({
         id: this.editingId,
         conductorId: this.getVehicleDriverId(this.editingId),
-        estado: 'Activo', // Mantener estado o agregar campo
+        estado: 'ACTIVO',
         ...this.newVehicle
+      }).subscribe({
+        next: () => {
+          this.formSuccess = 'Vehículo actualizado correctamente.';
+          this.cancelEdit();
+        },
+        error: (err) => {
+          this.formError = err?.message || 'No se pudo actualizar el vehículo.';
+        }
       });
-      this.formSuccess = 'Vehículo actualizado correctamente.';
-      this.cancelEdit();
     }
   }
 
@@ -102,18 +114,19 @@ export class VehiculosComponent implements OnInit, OnDestroy {
   }
 
   private async createVehicle() {
-    // Usar modal de confirmación en lugar de alert para mejor UX, o un toast si tuviéramos
-    await this.confirmationService.confirm({
-      title: 'Vehículo Registrado',
-      message: 'El vehículo ha sido registrado correctamente (modo simulación).',
-      confirmText: 'Entendido',
-      type: 'info'
-    });
     this.fleetService.addVehicle({
       ...this.newVehicle,
-      estado: 'Activo'
+      estado: 'ACTIVO'
+    }).subscribe({
+      next: () => {
+        this.formSuccess = 'Vehículo registrado en el servidor.';
+        this.resetForm();
+      },
+      error: (err) => {
+        this.formError = err?.message || 'No se pudo registrar el vehículo.';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     });
-    this.resetForm();
   }
 
   cancelEdit() {
@@ -150,7 +163,11 @@ export class VehiculosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.fleetService.assignDriverToVehicle(vehicle.id, driverId);
+    this.fleetService.assignDriverToVehicle(vehicle.id, driverId).subscribe({
+      error: (err) => {
+        this.formError = err?.message || 'No se pudo guardar la asignación.';
+      }
+    });
   }
 
   private async confirmDriverChange(
@@ -242,7 +259,11 @@ export class VehiculosComponent implements OnInit, OnDestroy {
     });
 
     if (confirmed) {
-      this.fleetService.deleteVehicle(vehicle.id);
+      this.fleetService.deleteVehicle(vehicle.id).subscribe({
+        error: (err) => {
+          this.formError = err?.message || 'No se pudo eliminar el vehículo.';
+        }
+      });
     }
   }
 }

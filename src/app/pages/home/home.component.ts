@@ -1,13 +1,17 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LayoutComponent } from '../../shared/layout/layout.component';
-import { HttpClient } from '@angular/common/http';
 import * as L from 'leaflet';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest, firstValueFrom, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { RouterModule } from '@angular/router';
 import { PlannedRoute, Vehicle, RouteStop, ChargingStation } from '../../core/models/routes.model';
 import { RoutesService } from '../../core/services/routes.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { AuthService } from '../../core/services/auth.service';
+import { FleetService, WeeklyStats } from '../../core/services/fleet.service';
+import { TelemetryService } from '../../core/services/telemetry.service';
+import { fallbackParkingPosition, vehicleStatusColor, vehicleStatusLabel, normalizeVehicleStatus } from '../../core/utils/vehicle-status';
 
 @Component({
   selector: 'app-home',
@@ -36,10 +40,12 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
 
   stats = {
     vehicles: 0,
-    drivers: 8,
+    drivers: 0,
     routes: 0,
-    activeTrips: 3
+    activeTrips: 0
   };
+
+  weekly: WeeklyStats = { vehicles: 0, drivers: 0, routes: 0, trips: 0 };
 
   fullscreenActive = false;
   isRefreshing = false;
@@ -49,8 +55,19 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     private routesService: RoutesService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private authService: AuthService,
+    private fleetService: FleetService,
+    private telemetryService: TelemetryService
   ) { }
+
+  get isAdmin(): boolean {
+    return this.authService.getCurrentUser()?.role === 'admin';
+  }
+
+  get isLoggedIn(): boolean {
+    return !!this.authService.getCurrentUser();
+  }
 
   ngOnInit() {
     // Configurar iconos de Leaflet
@@ -58,23 +75,60 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     this.routesSub = this.routesService.routes$.subscribe(routes => {
       this.routes = routes;
       this.stats.routes = routes.length;
+      this.updateStats();
       this.renderNetwork();
     });
-    this.vehiclesSub = this.routesService.vehicles$.subscribe(vehicles => {
-      this.vehicles = vehicles;
-      this.stats.vehicles = vehicles.length;
-      this.stats.vehicles = vehicles.length;
+    this.vehiclesSub = combineLatest([
+      this.fleetService.vehicles$,
+      this.fleetService.drivers$,
+      this.telemetryService.positions$,
+      this.authService.currentUser$
+    ]).subscribe(([realVehicles, drivers, positions, user]) => {
+      const currentDriver = this.fleetService.findDriverForUser(user);
+      const visibleFleet = user?.role === 'driver' && currentDriver
+        ? realVehicles.filter(v => v.conductorId === currentDriver.id || v.id === currentDriver.vehiculoId)
+        : realVehicles;
+
+      this.vehicles = visibleFleet.map((v) => {
+        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? positions.get(v.imeiDispositivoGps) : undefined);
+        const parking = fallbackParkingPosition(v.id);
+        const driverName = drivers.find(d => d.id === v.conductorId)?.nombreCompleto || 'Sin asignar';
+        const estado = gps?.estado || v.estado;
+        return {
+          id: v.id,
+          unidad: v.matricula || `V-${v.id}`,
+          matricula: v.matricula,
+          conductor: driverName,
+          conductorId: v.conductorId,
+          estado,
+          lat: gps?.lat || parking.lat,
+          lng: gps?.lng || parking.lng,
+          color: vehicleStatusColor(estado),
+          velocidad: gps?.velocidad ?? 0,
+          gpsActivo: !!gps,
+          imeiDispositivoGps: v.imeiDispositivoGps
+        };
+      });
+      this.updateStats();
       this.renderNetwork();
     });
+
     this.routesService.stations$.subscribe(stations => {
       this.stations = stations;
       this.renderNetwork();
+    });
+
+    this.fleetService.drivers$.subscribe(drivers => {
+      this.stats.drivers = drivers.length;
+      this.updateStats();
     });
 
     // Suscribirse a cambios de tema
     this.themeSubscription = this.themeService.theme$.subscribe(() => {
       this.updateMapTheme();
     });
+
+    this.refreshData();
   }
 
   ngAfterViewInit() {
@@ -148,14 +202,9 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Cargar estado inicial de rutas y vehículos
     const currentRoutes = this.routesService.getCurrentRoutes();
-    const currentVehicles = this.routesService.getCurrentVehicles();
     if (currentRoutes.length > 0) {
       this.routes = currentRoutes;
       this.stats.routes = currentRoutes.length;
-    }
-    if (currentVehicles.length > 0) {
-      this.vehicles = currentVehicles;
-      this.stats.vehicles = currentVehicles.length;
     }
 
     this.renderNetwork();
@@ -272,7 +321,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     });
 
     this.routes.forEach(route => {
-      if (!route.polyline.length) {
+      if (!route.polyline || route.polyline.length < 2) {
         return;
       }
       const routeColor = route.color || '#efb810';
@@ -365,19 +414,23 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
       });
     });
 
-    this.vehicles.forEach(vehicle => {
-      const isActive = vehicle.gpsActivo !== false; // Por defecto activo si no se especifica
-      // Icono pequeño con círculo de fondo y icono de carro dentro
-      // El anclaje en el centro asegura que se mantenga fijo al hacer zoom
-      const iconSize = 32; // Tamaño pequeño para rendimiento óptimo
+    this.vehicles.forEach((vehicle) => {
+      if (!vehicle.lat || !vehicle.lng) {
+        return;
+      }
+      const status = normalizeVehicleStatus(vehicle.estado);
+      const isActive = status === 'TRABAJANDO';
+      const iconSize = 32;
       const centerPoint = iconSize / 2;
-
-      const circleColor = isActive ? '#10b981' : '#6b7280';
+      const lat = vehicle.lat;
+      const lng = vehicle.lng;
+      const circleColor = vehicleStatusColor(vehicle.estado);
+      const estadoLabel = vehicleStatusLabel(vehicle.estado);
       const icon = L.divIcon({
         className: 'vehicle-marker-container',
         html: `
           <div class="vehicle-marker-wrapper" style="position: relative; width: ${iconSize}px; height: ${iconSize}px;">
-            <div class="vehicle-circle ${isActive ? 'active' : 'inactive'}" 
+            <div class="vehicle-circle ${isActive ? 'active' : 'inactive'}"
                  style="width: ${iconSize}px; height: ${iconSize}px; border-radius: 50%; background: ${circleColor}; border: 2px solid #000000; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); position: relative; z-index: 1000; ${!isActive ? 'opacity: 0.8;' : ''}">
               <i class="fas fa-car" style="color: #facc15; font-size: 0.75rem; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));"></i>
             </div>
@@ -388,13 +441,48 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         popupAnchor: [0, -centerPoint]
       });
 
-      const marker = L.marker([vehicle.lat, vehicle.lng], { icon }).addTo(this.map!);
-      marker.bindPopup(`
-        <div class="vehicle-popup">
-          <strong>${vehicle.unidad}</strong>
-        </div>
-      `);
+      const marker = L.marker([lat, lng], { icon }).addTo(this.map!);
+
+      // Buscar la ruta asignada al vehículo (por el campo conductor o nombre de unidad)
+      const rutaAsignada = this.routes.find(r =>
+        r.paradas.some(p => p.nombre?.toLowerCase().includes(vehicle.unidad?.toLowerCase() ?? ''))
+      );
+      const rutaNombre = rutaAsignada?.nombre ?? 'Sin ruta asignada';
+
+      // Popup diferenciado por rol
+      if (this.isAdmin) {
+        const velocidad = vehicle.velocidad != null ? `${vehicle.velocidad} km/h` : 'Sin datos GPS';
+        const conductor = vehicle.conductor && vehicle.conductor.trim() ? vehicle.conductor : 'Sin conductor';
+        const estado = estadoLabel;
+        const placa = (vehicle as any).matricula || (vehicle as any).placa || 'N/A';
+
+        marker.bindPopup(`
+          <div class="vehicle-popup-admin">
+            <div class="vp-header">
+              <span class="vp-badge ${isActive ? 'active' : 'inactive'}">${isActive ? '● EN LÍNEA' : '● OFFLINE'}</span>
+              <strong class="vp-title">${vehicle.unidad}</strong>
+            </div>
+            <table class="vp-table">
+              <tr><td>🚗 Placa</td><td><b>${placa}</b></td></tr>
+              <tr><td>👤 Conductor</td><td>${conductor}</td></tr>
+              <tr><td>🛣️ Ruta</td><td>${rutaNombre}</td></tr>
+              <tr><td>⚡ Velocidad</td><td>${velocidad}</td></tr>
+              <tr><td>📍 Estado</td><td>${estado}</td></tr>
+              <tr><td>🌐 GPS</td><td>${isActive ? 'Activo' : 'Inactivo'}</td></tr>
+            </table>
+          </div>
+        `, { maxWidth: 280 });
+      } else {
+        marker.bindPopup(`
+          <div class="vehicle-popup">
+            <strong>${vehicle.unidad}</strong><br>
+            <span style="color: ${circleColor}; font-weight: 700;">● ${estadoLabel}</span>
+          </div>
+        `);
+      }
+
       this.vehicleMarkers.push(marker as any);
+      this.updateStats();
     });
   }
 
@@ -419,7 +507,37 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private updateStopIcons() {
+  private updateStats(): void {
+    const activeStates = ['ACTIVO', 'EN RUTA', 'EN PARADA', 'CARGANDO'];
+    this.stats.vehicles = this.vehicles.filter(v => {
+      const estado = (v.estado || '').toUpperCase();
+      return activeStates.includes(estado);
+    }).length;
+
+    this.stats.activeTrips = this.vehicles.filter(v =>
+      v.conductorId != null || (v.estado || '').toUpperCase() === 'EN RUTA'
+    ).length;
+
+    this.stats.routes = this.routes.length;
+    this.weekly = this.fleetService.getWeeklyStats();
+    this.weekly.routes = this.routesService.getWeeklyCreatedCount();
+    if (!this.isAdmin) {
+      this.weekly = {
+        ...this.weekly,
+        drivers: 0
+      };
+    }
+  }
+
+  weeklyLabel(delta: number, period: 'semana' | 'hoy' = 'semana'): string {
+    if (!delta) {
+      return `Sin cambios esta ${period}`;
+    }
+    const sign = delta > 0 ? '+' : '';
+    return `${sign}${delta} esta ${period}`;
+  }
+
+private updateStopIcons() {
     if (!this.map || this.stopMarkers.length === 0) {
       return;
     }
@@ -493,15 +611,18 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     this.refreshError = '';
     this.isRefreshing = true;
     try {
-      const { routes, vehicles } = await this.routesService.refreshData();
-      this.routes = routes;
-      this.stats.routes = routes.length;
-      this.vehicles = vehicles;
-      this.stats.vehicles = vehicles.length;
+      // Refrescar datos del backend (rutas, estaciones)
+      await firstValueFrom(this.fleetService.refreshDataFromBackend().pipe(
+        catchError(() => of(null))
+      ));
+      await this.routesService.refreshData();
+
+      // Forzar actualización de stats y renderizado
+      this.updateStats();
       this.renderNetwork();
     } catch (error) {
       console.error('No se pudo actualizar el mapa del dashboard', error);
-      this.refreshError = 'No se pudo actualizar el mapa. Inténtalo nuevamente.';
+      this.refreshError = 'No se pudo actualizar. Verifica la conexión con el servidor.';
     } finally {
       this.isRefreshing = false;
     }

@@ -3,6 +3,7 @@ import { RouterModule, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from '../../core/services/theme.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConnectionService } from '../../core/services/connection.service';
 import { Subscription, Observable } from 'rxjs';
 import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dialog.component';
 import { ChatService } from '../../core/services/chat.service';
@@ -19,16 +20,20 @@ export class LayoutComponent implements OnInit, OnDestroy {
   sidebarOpen = false;
   isAdmin = false;
   isDriver = false;
+  isGuest = true;
   isDarkMode = false;
+  backendOnline = false;
   private themeSubscription?: Subscription;
   private userSubscription?: Subscription;
+  private connectionSubscription?: Subscription;
   unreadCount$: Observable<number> | null = null;
 
   constructor(
     private router: Router,
     private themeService: ThemeService,
     private authService: AuthService,
-    private chatService: ChatService
+    private chatService: ChatService,
+    private connectionService: ConnectionService
   ) { }
 
   ngOnInit(): void {
@@ -36,6 +41,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     this.userSubscription = this.authService.currentUser$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
       this.isDriver = user?.role === 'driver';
+      this.isGuest = !user;
     });
 
     this.unreadCount$ = this.chatService.getUnreadCount();
@@ -43,6 +49,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
     this.isDarkMode = this.themeService.isDarkMode();
     this.themeSubscription = this.themeService.theme$.subscribe(theme => {
       this.isDarkMode = theme === 'dark';
+    });
+
+    this.connectionSubscription = this.connectionService.connected$.subscribe(online => {
+      this.backendOnline = online;
     });
   }
 
@@ -52,6 +62,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
     }
     if (this.userSubscription) {
       this.userSubscription.unsubscribe();
+    }
+    if (this.connectionSubscription) {
+      this.connectionSubscription.unsubscribe();
     }
   }
 

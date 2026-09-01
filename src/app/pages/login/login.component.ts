@@ -56,22 +56,26 @@ export class LoginComponent implements OnInit {
     this.hideMessage();
 
     this.authService.login(this.username, this.password).subscribe({
-      next: (success) => {
+      next: (response) => {
         this.loading = false;
-        if (success) {
-          const user = this.authService.getCurrentUser();
+        const token = response.access_token || response.jwtToken;
+        if (response && token) {
           this.showMessage('¡Login exitoso! Redirigiendo...', 'success');
 
           setTimeout(() => {
             this.router.navigate(['/home']);
           }, 1000);
         } else {
-          this.showMessage('Usuario o contraseña incorrectos', 'error');
+          this.showMessage('Error al procesar la respuesta del servidor', 'error');
         }
       },
-      error: () => {
+      error: (error) => {
         this.loading = false;
-        this.showMessage('Error al intentar iniciar sesión', 'error');
+        if (error.status === 401) {
+          this.showMessage('Usuario o contraseña incorrectos', 'error');
+        } else {
+          this.showMessage('Error de conexión con el servidor', 'error');
+        }
       }
     });
   }
