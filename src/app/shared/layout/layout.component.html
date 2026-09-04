@@ -201,11 +201,6 @@
         </button>
       </div>
       <div class="header-right">
-        <div *ngIf="isAdmin" class="connection-status" [class.offline]="!backendOnline" [attr.title]="backendOnline ? 'Conectado al servidor' : 'Sin conexión con el servidor'">
-          <span class="status-dot" [class.online]="backendOnline" [class.offline]="!backendOnline"></span>
-          <i class="fas" [ngClass]="backendOnline ? 'fa-wifi' : 'fa-wifi-slash'" aria-hidden="true"></i>
-          <span>{{ backendOnline ? 'Conectado' : 'Sin conexión' }}</span>
-        </div>
         <div class="user-info" *ngIf="!isGuest">
           <i class="fas fa-user-circle"></i>
           <span>{{ isAdmin ? 'Administrador' : (isDriver ? 'Conductor' : 'Usuario') }}</span>

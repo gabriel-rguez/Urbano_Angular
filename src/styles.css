@@ -1019,4 +1019,110 @@ body {
         width: 100%;
         margin-bottom: 10px;
     }
+
+    /* Responsive Cards for Tables */
+    .vehicles-table, .drivers-table, .routes-table {
+        display: block;
+        width: 100%;
+    }
+    
+    .vehicles-table thead, .drivers-table thead, .routes-table thead {
+        display: none;
+    }
+    
+    .vehicles-table tbody, .drivers-table tbody, .routes-table tbody {
+        display: block;
+        width: 100%;
+    }
+    
+    .vehicles-table tr, .drivers-table tr, .routes-table tr {
+        display: block;
+        margin-bottom: 1.5rem;
+        background: var(--stat-card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .vehicles-table td, .drivers-table td, .routes-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--card-border);
+        text-align: right;
+    }
+    
+    .vehicles-table td:last-child, .drivers-table td:last-child, .routes-table td:last-child {
+        border-bottom: none;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .vehicles-table td::before, .drivers-table td::before, .routes-table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        text-align: left;
+        color: var(--text-color);
+        margin-right: 15px;
+        opacity: 0.8;
+    }
+
+    .table-actions {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    .table-actions .btn-edit, .table-actions .btn-delete, .table-actions .btn-view, .table-actions .btn-action {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .form-section {
+        padding: 15px;
+    }
+}
+
+/* Modal Responsiveness */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 15px;
+}
+
+.modal-content {
+    background: var(--card-background);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 85vh; /* Evitar corte inferior apaisado */
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 95vh;
+    }
 }

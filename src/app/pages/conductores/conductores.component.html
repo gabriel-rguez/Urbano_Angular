@@ -106,16 +106,16 @@
         </thead>
         <tbody>
           <tr *ngFor="let driver of drivers">
-            <td>{{ driver.ci }}</td>
-            <td>{{ driver.nombreCompleto }}</td>
-            <td>{{ driver.telefono }}</td>
-            <td>{{ driver.email }}</td>
-            <td>
+            <td data-label="CI">{{ driver.ci }}</td>
+            <td data-label="Nombre">{{ driver.nombreCompleto }}</td>
+            <td data-label="Teléfono">{{ driver.telefono }}</td>
+            <td data-label="Email">{{ driver.email }}</td>
+            <td data-label="Licencias">
               <span class="license-chip" *ngFor="let category of driver.categorias">
                 {{ category }}
               </span>
             </td>
-            <td>
+            <td data-label="Vehículo activo">
               <div class="assign-card__current">
                 <span class="assign-card__current-label">Vehículo activo</span>
                 <div class="assign-card__current-value">
@@ -124,7 +124,7 @@
                 </div>
               </div>
             </td>
-            <td>
+            <td data-label="Asignar a vehículo">
               <div class="assign-card">
                 <div class="assign-card__info">
                   <span class="assign-card__badge">
@@ -146,7 +146,7 @@
                 </div>
               </div>
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="table-actions">
                 <button class="btn-view" (click)="viewDriver(driver)">
                   <i class="fas fa-eye"></i>

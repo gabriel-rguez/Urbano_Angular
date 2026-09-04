@@ -1,0 +1,7 @@
+# Build para docker-compose: sirve el dist local ya compilado (evita npm install offline).
+# Requiere haber ejecutado `ng build --configuration production` previamente en el host.
+FROM nginx:stable-alpine
+COPY dist/gestion_ecomovil/browser /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

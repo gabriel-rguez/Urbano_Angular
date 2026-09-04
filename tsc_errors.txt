@@ -1,2 +1,0 @@
-﻿src/app/core/services/routes.service.ts(83,17): error TS2322: Type '{ id: any; nombre: any; vehiculoId: any; distanciaKm: any; duracionEstimadaMin: any; polyline: any; paradas: any; }[]' is not assignable to type 'PlannedRoute[]'.
-  Type '{ id: any; nombre: any; vehiculoId: any; distanciaKm: any; duracionEstimadaMin: any; polyline: any; paradas: any; }' is missing the following properties from type 'PlannedRoute': origen, destino, estado, color

@@ -43,6 +43,14 @@ import { Subscription } from 'rxjs';
                      [required]="input.required || false"
                      class="form-control"
                      rows="3"></textarea>
+              <input *ngIf="input.type === 'password'"
+                     type="password" 
+                     [id]="input.name" 
+                     [(ngModel)]="inputValues[input.name]"
+                     [placeholder]="input.placeholder || ''"
+                     [required]="input.required || false"
+                     class="form-control"
+                     autocomplete="current-password">
               <select *ngIf="input.type === 'select'"
                      [id]="input.name" 
                      [(ngModel)]="inputValues[input.name]"
@@ -136,6 +144,10 @@ import { Subscription } from 'rxjs';
       color: var(--text-color);
       font-size: 1rem;
       line-height: 1.5;
+    }
+
+    .dialog-body p {
+      white-space: pre-line;
     }
 
     .dialog-footer {

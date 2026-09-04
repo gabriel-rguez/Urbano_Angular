@@ -7,6 +7,6 @@ export const environment = {
   authUrl: 'http://localhost/auth',
   telemetriaUrl: 'http://localhost/telemetria',
   // EMQX expone WebSockets MQTT en el puerto 1884
-  mqttUrl: 'ws://localhost:1884'
+  mqttUrl: 'ws://localhost:1884/mqtt'
 };
 

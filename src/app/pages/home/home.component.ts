@@ -90,7 +90,7 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
         : realVehicles;
 
       this.vehicles = visibleFleet.map((v) => {
-        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? positions.get(v.imeiDispositivoGps) : undefined);
+        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? (positions.get(v.imeiDispositivoGps) ?? positions.get(Number(v.imeiDispositivoGps))) : undefined);
         const parking = fallbackParkingPosition(v.id);
         const driverName = drivers.find(d => d.id === v.conductorId)?.nombreCompleto || 'Sin asignar';
         const estado = gps?.estado || v.estado;
@@ -141,9 +141,9 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
   private setupLeafletIcons() {
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconRetinaUrl: 'images/marker-icon-2x.png',
+      iconUrl: 'images/marker-icon.png',
+      shadowUrl: 'images/marker-shadow.png',
     });
   }
 
@@ -520,7 +520,6 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.stats.routes = this.routes.length;
     this.weekly = this.fleetService.getWeeklyStats();
-    this.weekly.routes = this.routesService.getWeeklyCreatedCount();
     if (!this.isAdmin) {
       this.weekly = {
         ...this.weekly,
@@ -611,11 +610,22 @@ private updateStopIcons() {
     this.refreshError = '';
     this.isRefreshing = true;
     try {
-      // Refrescar datos del backend (rutas, estaciones)
-      await firstValueFrom(this.fleetService.refreshDataFromBackend().pipe(
+      // Refrescar datos del backend: endpoint público si no hay sesión, privado si hay usuario
+      const user = this.authService.getCurrentUser();
+      const fleetRefresh$ = user
+        ? this.fleetService.refreshDataFromBackend()
+        : this.fleetService.refreshPublicDataFromBackend();
+      await firstValueFrom(fleetRefresh$.pipe(
         catchError(() => of(null))
       ));
       await this.routesService.refreshData();
+
+      // Cargar estadísticas semanales desde la BD (solo visibles para el admin)
+      if (user?.role === 'admin' || this.isAdmin) {
+        await firstValueFrom(this.fleetService.loadWeeklyStatsFromBackend().pipe(
+          catchError(() => of(null))
+        ));
+      }
 
       // Forzar actualización de stats y renderizado
       this.updateStats();
@@ -627,4 +637,4 @@ private updateStopIcons() {
       this.isRefreshing = false;
     }
   }
-}
+}

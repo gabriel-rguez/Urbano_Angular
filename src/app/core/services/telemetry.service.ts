@@ -1,6 +1,8 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SKIP_AUTH } from '../interceptors/auth.interceptor';
 
 export interface TelemetryData {
   vehiculoId: string | number;
@@ -30,16 +32,26 @@ export interface TelemetryData {
 export class TelemetryService implements OnDestroy {
   private readonly MQTT_WS_URL = environment.mqttUrl;
 
-  // Credenciales del usuario MQTT "web-admin" creado por emqx-init
+  // El WebSocket MQTT de EMQX (1884) autentica mediante JWT de Keycloak.
+  // El token público se obtiene en tiempo de ejecución desde /telemetria/v1/public-token
+  // y se usa como password del frame CONNECT. El username solo sirve para el ACL.
   private readonly MQTT_CLIENT_ID = `web-admin-${Math.random().toString(16).slice(2, 8)}`;
   private readonly MQTT_USERNAME  = 'web-admin';
-  private readonly MQTT_PASSWORD  = 'webadmin123';
   private readonly MQTT_TOPIC     = 'vehiculos/+/telemetria/+';
   private readonly KEEP_ALIVE     = 60; // segundos
+  private readonly TOKEN_ENDPOINT = `${environment.telemetriaUrl}/v1/public-token`;
+
+  // Persistencia en localStorage de la última posición conocida por vehículo,
+  // para que al recargar la página el marcador muestre al instante la última
+  // ubicación GPS (y no el fallback de estacionamiento) hasta que llegue el
+  // siguiente frame en tiempo real.
+  private static readonly POSITIONS_STORAGE_KEY = 'urbano_telemetry_last_positions';
 
   private socket: WebSocket | null = null;
   private reconnectTimer: any = null;
+  private tokenRefreshTimer: any = null;
   private isDestroyed = false;
+  private mqttToken: string | null = null;
 
   private isConnectedSubject = new BehaviorSubject<boolean>(false);
   public isConnected$ = this.isConnectedSubject.asObservable();
@@ -51,7 +63,8 @@ export class TelemetryService implements OnDestroy {
   private positionsSubject = new BehaviorSubject<Map<string | number, TelemetryData>>(new Map());
   public positions$ = this.positionsSubject.asObservable();
 
-  constructor() {
+  constructor(private http: HttpClient) {
+    this.restorePersistedPositions();
     this.connect();
   }
 
@@ -60,6 +73,23 @@ export class TelemetryService implements OnDestroy {
   // ─────────────────────────────────────────────────────────────
 
   connect() {
+    if (this.isDestroyed) return;
+
+    // Obtener primero el token JWT público de Keycloak. El listener WebSocket de
+    // EMQX (1884) lo exige en el campo password del CONNECT.
+    this.obtenerTokenPublico()
+      .then(() => {
+        if (this.isDestroyed) return;
+        this.openSocket();
+      })
+      .catch((err) => {
+        console.warn('[TelemetryService] No se pudo obtener el token MQTT público:', err);
+        this.isConnectedSubject.next(false);
+        this.scheduleReconnect(10000);
+      });
+  }
+
+  private openSocket() {
     if (this.isDestroyed) return;
     try {
       // 'mqtt' como subprotocolo WebSocket es requerido por EMQX
@@ -80,6 +110,7 @@ export class TelemetryService implements OnDestroy {
 
       this.socket.onclose = () => {
         this.isConnectedSubject.next(false);
+        this.stopTokenRefresh();
         console.log('[TelemetryService] WebSocket MQTT cerrado. Reconectando en 10s...');
         this.scheduleReconnect(10000);
       };
@@ -96,6 +127,49 @@ export class TelemetryService implements OnDestroy {
     this.reconnectTimer = setTimeout(() => this.connect(), delayMs);
   }
 
+  /**
+   * Solicita el token temporal de MQTT al back end (/telemetria/v1/public-token).
+   * Guarda el password y programa su renovación antes de que expire.
+   */
+  private async obtenerTokenPublico(): Promise<void> {
+    try {
+      const res: any = await firstValueFrom(this.http.get(this.TOKEN_ENDPOINT, {
+        context: new HttpContext().set(SKIP_AUTH, true)
+      }));
+      const token: string = res?.accessToken;
+      let expiresIn: number = Number(res?.expiresIn) || 300;
+      if (!token) {
+        throw new Error('Respuesta sin accessToken');
+      }
+      this.mqttToken = token;
+      this.stopTokenRefresh();
+      // Margen de seguridad: renovar con 30s de antelación respecto a la expiración.
+      const refreshInMs = Math.max(2000, (expiresIn - 30) * 1000);
+      this.tokenRefreshTimer = setTimeout(() => {
+        this.reconnectWithNewToken();
+      }, refreshInMs);
+    } catch (e) {
+      this.mqttToken = null;
+      throw e;
+    }
+  }
+
+  /** Reabre la conexión usando un token renovado sin esperar a que el socket muera. */
+  private reconnectWithNewToken() {
+    if (this.isDestroyed) return;
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      try { this.socket.close(); } catch { /* noop */ }
+    }
+    this.connect();
+  }
+
+  private stopTokenRefresh() {
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Construcción manual de frames MQTT v3.1.1
   // ─────────────────────────────────────────────────────────────
@@ -108,7 +182,7 @@ export class TelemetryService implements OnDestroy {
   private sendMqttConnect() {
     const clientIdBytes  = this.encodeUtf8(this.MQTT_CLIENT_ID);
     const usernameBytes  = this.encodeUtf8(this.MQTT_USERNAME);
-    const passwordBytes  = this.encodeUtf8(this.MQTT_PASSWORD);
+    const passwordBytes  = this.encodeUtf8(this.mqttToken ?? '');
     const protocolBytes  = this.encodeUtf8('MQTT');
 
     // Flags: cleansession=1, username=1, password=1
@@ -255,9 +329,76 @@ export class TelemetryService implements OnDestroy {
       if (lat !== 0 && lng !== 0) {
         this.lastPositions.set(vehiculoId, telemetry);
         this.positionsSubject.next(new Map(this.lastPositions));
+        this.persistPositions();
       }
     } catch {
       // Ignorar frames malformados
+    }
+  }
+
+  /**
+   * Restaura en memoria la última posición GPS conocida por vehículo guardada en
+   * localStorage (si existe). Con esto el mapa muestra la ubicación al instante
+   * al recargar, antes de que llegue el siguiente frame en tiempo real.
+   */
+  private restorePersistedPositions() {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(TelemetryService.POSITIONS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null) return;
+      Object.entries(parsed).forEach(([key, value]: [string, any]) => {
+        if (!value || typeof value !== 'object') return;
+        const lat = Number(value.lat);
+        const lng = Number(value.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        this.lastPositions.set(
+          /^\d+$/.test(key) ? Number(key) : key,
+          {
+            vehiculoId: /^\d+$/.test(key) ? Number(key) : key,
+            lat,
+            lng,
+            velocidad: value.velocidad,
+            bateria: value.bateria,
+            timestamp: value.timestamp,
+            estado: value.estado
+          }
+        );
+      });
+      if (this.lastPositions.size > 0) {
+        this.positionsSubject.next(new Map(this.lastPositions));
+      }
+    } catch {
+      // Si el dato es corrupto, se ignora y se parte de cero.
+    }
+  }
+
+  /** Persiste la última posición conocida por vehículo en localStorage. */
+  private persistPositions() {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+    try {
+      const serializable: Record<string, any> = {};
+      this.lastPositions.forEach((telemetry, key) => {
+        serializable[String(key)] = {
+          lat: telemetry.lat,
+          lng: telemetry.lng,
+          velocidad: telemetry.velocidad,
+          bateria: telemetry.bateria,
+          timestamp: telemetry.timestamp,
+          estado: telemetry.estado
+        };
+      });
+      window.localStorage.setItem(
+        TelemetryService.POSITIONS_STORAGE_KEY,
+        JSON.stringify(serializable)
+      );
+    } catch {
+      // No bloquear la telemetría si localStorage falla (p. ej. modo privado).
     }
   }
 
@@ -325,6 +466,8 @@ export class TelemetryService implements OnDestroy {
   disconnect() {
     this.isDestroyed = true;
     clearTimeout(this.reconnectTimer);
+    this.stopTokenRefresh();
+    this.mqttToken = null;
     if (this.socket) {
       this.socket.close();
       this.socket = null;

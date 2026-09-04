@@ -43,7 +43,7 @@
             (click)="activeTab = 'routes'; isAddingStation = false" title="Modo Rutas">
             <i class="fas fa-route"></i> Rutas
           </button>
-          <button type="button" [class.active]="activeTab === 'stations'"
+                    <button type="button" [class.active]="activeTab === 'stations'"
             (click)="activeTab = 'stations'; cancelRouteDrawing(); isAddingStop = false; clearSelection()"
             title="Modo Estaciones">
             <i class="fas fa-charging-station"></i> Estaciones
@@ -53,7 +53,7 @@
         <span class="divider"></span>
 
         <!-- STATION TOOLS -->
-        <ng-container *ngIf="activeTab === 'stations'">
+                <ng-container *ngIf="activeTab === 'stations'">
           <button type="button" class="btn-tool" [class.active]="isAddingStation" (click)="toggleStationMode()">
             <i class="fas fa-plus-circle"></i> {{ isAddingStation ? 'Cancel' : 'Nueva Estación' }}
           </button>
@@ -222,10 +222,8 @@
       <!-- HEADER CON TAB TITLE -->
       <div class="table-header">
         <div>
-          <h2>{{ activeTab === 'routes' ? 'Rutas registradas' : 'Estaciones de Carga' }}</h2>
-          <p *ngIf="activeTab === 'routes'">Los datos se mantendrán localmente hasta conectarse con la base de datos.
-          </p>
-          <p *ngIf="activeTab === 'stations'">Gestiona la infraestructura de carga.</p>
+          <h2>Rutas registradas</h2>
+          <p>Los datos se mantendrán localmente hasta conectarse con la base de datos.</p>
         </div>
         <button type="button" class="btn-ghost light" (click)="clearSelection()"
           *ngIf="activeTab === 'routes' && selectedRoute">
@@ -248,12 +246,12 @@
           </thead>
           <tbody>
             <tr *ngFor="let route of routes" [class.selected]="route.id === selectedRoute?.id">
-              <td>{{ route.nombre }}</td>
-              <td>{{ route.origen }}</td>
-              <td>{{ route.destino }}</td>
-              <td>{{ route.paradas.length }}</td>
-              <td><span class="route-status active">{{ route.estado }}</span></td>
-              <td class="table-actions">
+              <td data-label="Nombre">{{ route.nombre }}</td>
+              <td data-label="Origen">{{ route.origen }}</td>
+              <td data-label="Destino">{{ route.destino }}</td>
+              <td data-label="Paradas">{{ route.paradas.length }}</td>
+              <td data-label="Estado"><span class="route-status active">{{ route.estado }}</span></td>
+              <td class="table-actions" data-label="Acciones">
                 <button type="button" class="btn-action btn-action-view" (click)="viewRoute(route)"
                   [attr.aria-label]="'Visualizar ' + route.nombre" title="Visualizar {{ route.nombre }}">
                   <i class="fas fa-eye"></i>
@@ -350,7 +348,7 @@
       </ng-container>
 
       <!-- STATIONS CONTENT -->
-      <ng-container *ngIf="activeTab === 'stations'">
+            <ng-container *ngIf="activeTab === 'stations'">
         <table class="routes-table">
           <thead>
             <tr>
@@ -388,6 +386,7 @@
           </tbody>
         </table>
       </ng-container>
+      -->
 
     </div>
   </section>

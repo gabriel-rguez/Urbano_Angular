@@ -5,7 +5,7 @@ import { Subject, Observable } from 'rxjs';
 export interface InputField {
     name: string;
     label: string;
-    type?: 'text' | 'textarea' | 'select' | 'color'; // added color just in case, though selectColorFromPalette is custom
+    type?: 'text' | 'textarea' | 'select' | 'color' | 'password'; // added color just in case, though selectColorFromPalette is custom
     value?: string;
     placeholder?: string;
     required?: boolean;

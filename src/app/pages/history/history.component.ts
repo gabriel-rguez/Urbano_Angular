@@ -6,6 +6,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { ConfirmationService } from '../../core/services/confirmation.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 
 @Component({
     selector: 'app-history',
@@ -59,8 +61,51 @@ export class HistoryComponent implements OnInit {
             type: 'danger'
         });
 
-        if (confirmed) {
+        if (!confirmed) {
+            return;
+        }
+
+        // Verificación de seguridad: confirmar con la contraseña del administrador.
+        const user = this.authService.getCurrentUser();
+        const email = (user as any)?.email || (user as any)?.username || '';
+
+        const result = await this.confirmationService.prompt({
+            title: 'Verificación de seguridad',
+            message: 'Para borrar el historial, confirma tu contraseña de administrador.',
+            confirmText: 'Borrar historial',
+            cancelText: 'Cancelar',
+            type: 'danger',
+            inputs: [
+                { name: 'password', label: 'Contraseña', type: 'password', placeholder: 'Ingresa tu contraseña', required: true }
+            ]
+        });
+
+        if (!result || !result['password']) {
+            return;
+        }
+
+        const passwordValid = await firstValueFrom(
+            this.authService.login(email, result['password']).pipe(
+                map(() => true),
+                catchError(() => of(false))
+            )
+        );
+
+        if (passwordValid) {
             this.auditService.clearLogs();
+            await this.confirmationService.confirm({
+                title: 'Historial borrado',
+                message: 'El historial de auditoría fue eliminado correctamente.',
+                confirmText: 'Aceptar',
+                type: 'info'
+            });
+        } else {
+            await this.confirmationService.confirm({
+                title: 'Contraseña incorrecta',
+                message: 'La contraseña ingresada no es válida. El historial no fue borrado.',
+                confirmText: 'Aceptar',
+                type: 'warning'
+            });
         }
     }
 

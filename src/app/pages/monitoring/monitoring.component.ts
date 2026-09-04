@@ -99,7 +99,7 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
       this.telemetryService.positions$
     ]).subscribe(([fleet, drivers, positions]) => {
       this.vehicles = fleet.map(v => {
-        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? positions.get(v.imeiDispositivoGps) : undefined);
+        const gps = positions.get(v.id) ?? (v.imeiDispositivoGps ? (positions.get(v.imeiDispositivoGps) ?? positions.get(Number(v.imeiDispositivoGps))) : undefined);
         const parking = fallbackParkingPosition(v.id);
         const estado = gps?.estado || v.estado;
         return {
@@ -140,9 +140,9 @@ export class MonitoringComponent implements OnInit, OnDestroy, AfterViewInit {
   private setupLeafletIcons() {
     delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconRetinaUrl: 'images/marker-icon-2x.png',
+      iconUrl: 'images/marker-icon.png',
+      shadowUrl: 'images/marker-shadow.png',
     });
   }
 

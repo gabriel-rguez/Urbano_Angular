@@ -21,7 +21,8 @@ export class VehiculosComponent implements OnInit, OnDestroy {
     matricula: '',
     marca: '',
     modelo: '',
-    tipo: ''
+    tipo: '',
+    imeiDispositivoGps: ''
   };
 
   private subscriptions = new Subscription();
@@ -69,6 +70,9 @@ export class VehiculosComponent implements OnInit, OnDestroy {
       if (this.vehicleForm.controls['marca']?.errors) missingFields.push('Marca (requerida)');
       if (this.vehicleForm.controls['modelo']?.errors) missingFields.push('Modelo (requerido)');
       if (this.vehicleForm.controls['tipo']?.errors) missingFields.push('Tipo de Batería (requerido)');
+      if (this.vehicleForm.controls['imeiDispositivoGps']?.errors) {
+        missingFields.push('Identificador del GPS (máximo 15 dígitos)');
+      }
 
       this.formError = `Datos incorrectos:\n${missingFields.join('\n')}`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -78,7 +82,7 @@ export class VehiculosComponent implements OnInit, OnDestroy {
     if (this.isEditing && this.editingId) {
       await this.confirmUpdate();
     } else {
-      this.createVehicle();
+      await this.createVehicle();
     }
   }
 
@@ -114,8 +118,14 @@ export class VehiculosComponent implements OnInit, OnDestroy {
   }
 
   private async createVehicle() {
+    const confirmado = await this.confirmarRegistroConDuplicados();
+    if (!confirmado) {
+      return;
+    }
+
     this.fleetService.addVehicle({
       ...this.newVehicle,
+      imeiDispositivoGps: (this.newVehicle.imeiDispositivoGps || '').replace(/\s+/g, ''),
       estado: 'ACTIVO'
     }).subscribe({
       next: () => {
@@ -126,6 +136,66 @@ export class VehiculosComponent implements OnInit, OnDestroy {
         this.formError = err?.message || 'No se pudo registrar el vehículo.';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+    });
+  }
+
+  /**
+   * Detecta si la chapa y/o el IMEI que se intentan registrar ya existen en la
+   * flota. Devuelve un mensaje indicando qué vehículo tiene la chapa y cuál el
+   * IMEI (independientemente de que pertenezcan al mismo o a distintos vehículos).
+   */
+  private detectarDuplicados(): { matricula: FleetVehicle | null; imei: FleetVehicle | null } {
+    const matricula = (this.newVehicle.matricula || '').trim().toUpperCase();
+    const imei = (this.newVehicle.imeiDispositivoGps || '').trim().replace(/\s+/g, '');
+
+    const vehMatricula = matricula
+      ? this.vehicles.find(v => (v.matricula || '').trim().toUpperCase() === matricula) ?? null
+      : null;
+
+    const vehImei = imei
+      ? this.vehicles.find(v => (v.imeiDispositivoGps || '').trim().replace(/\s+/g, '') === imei) ?? null
+      : null;
+
+    return { matricula: vehMatricula, imei: vehImei };
+  }
+
+  private descripcionVehiculo(v: FleetVehicle): string {
+    return `${v.marca} ${v.modelo} (${v.matricula})`;
+  }
+
+  /**
+   * Si existen duplicados de chapa o IMEI, muestra un mensaje de advertencia
+   * detallado y pide confirmación antes de continuar con el registro.
+   */
+  private async confirmarRegistroConDuplicados(): Promise<boolean> {
+    const { matricula, imei } = this.detectarDuplicados();
+    const hayDuplicado = !!matricula || !!imei;
+
+    if (!hayDuplicado) {
+      return true;
+    }
+
+    const lineas: string[] = [];
+    if (matricula && imei && matricula.id === imei.id) {
+      lineas.push(`LA CHAPA "${this.newVehicle.matricula.toUpperCase()}" Y EL IMEI "${this.newVehicle.imeiDispositivoGps}" YA SE REGISTRARON ANTERIORMENTE al mismo vehículo: ${this.descripcionVehiculo(matricula)}.`);
+      lineas.push('');
+      lineas.push('¿Estás seguro de que quieres registrar este vehículo con esos datos?');
+    } else {
+      if (matricula) {
+        lineas.push(`La chapa "${this.newVehicle.matricula.toUpperCase()}" ya se registró anteriormente al vehículo: ${this.descripcionVehiculo(matricula)}.`);
+      }
+      if (imei) {
+        lineas.push(`El IMEI "${this.newVehicle.imeiDispositivoGps}" ya se registró anteriormente al vehículo: ${this.descripcionVehiculo(imei)}.`);
+      }
+      lineas.push('');
+      lineas.push('¿Estás seguro de que quieres registrar este vehículo con esos datos?');
+    }
+
+    return await this.confirmationService.confirm({
+      title: 'Datos ya registrados',
+      message: lineas.join('\n'),
+      confirmText: 'Sí, registrar de todos modos',
+      type: 'warning'
     });
   }
 
@@ -141,7 +211,8 @@ export class VehiculosComponent implements OnInit, OnDestroy {
       matricula: '',
       marca: '',
       modelo: '',
-      tipo: ''
+      tipo: '',
+      imeiDispositivoGps: ''
     };
   }
 
@@ -212,6 +283,9 @@ export class VehiculosComponent implements OnInit, OnDestroy {
         <strong>Tipo de Batería:</strong> <span class="detail-desc">${vehicle.tipo}</span>
       </div>
       <div class="detail-row">
+        <strong>Identificador del GPS:</strong> <span class="detail-desc">${vehicle.imeiDispositivoGps || 'Sin identificador'}</span>
+      </div>
+      <div class="detail-row">
         <strong>Estado:</strong> <span class="detail-desc">${vehicle.estado}</span>
       </div>
       <div class="detail-row">
@@ -243,7 +317,8 @@ export class VehiculosComponent implements OnInit, OnDestroy {
         matricula: vehicle.matricula,
         marca: vehicle.marca,
         modelo: vehicle.modelo,
-        tipo: vehicle.tipo
+        tipo: vehicle.tipo,
+        imeiDispositivoGps: vehicle.imeiDispositivoGps || ''
       };
       window.scrollTo({ top: 0, behavior: 'smooth' });
       this.formSuccess = null;

@@ -1,9 +1,8 @@
-import { Component, OnInit, ViewEncapsulation, OnDestroy } from '@angular/core';
+﻿import { Component, OnInit, ViewEncapsulation, OnDestroy } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from '../../core/services/theme.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ConnectionService } from '../../core/services/connection.service';
 import { Subscription, Observable } from 'rxjs';
 import { ConfirmDialogComponent } from '../components/confirm-dialog/confirm-dialog.component';
 import { ChatService } from '../../core/services/chat.service';
@@ -22,18 +21,15 @@ export class LayoutComponent implements OnInit, OnDestroy {
   isDriver = false;
   isGuest = true;
   isDarkMode = false;
-  backendOnline = false;
   private themeSubscription?: Subscription;
   private userSubscription?: Subscription;
-  private connectionSubscription?: Subscription;
   unreadCount$: Observable<number> | null = null;
 
   constructor(
     private router: Router,
     private themeService: ThemeService,
     private authService: AuthService,
-    private chatService: ChatService,
-    private connectionService: ConnectionService
+    private chatService: ChatService
   ) { }
 
   ngOnInit(): void {
@@ -51,9 +47,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
       this.isDarkMode = theme === 'dark';
     });
 
-    this.connectionSubscription = this.connectionService.connected$.subscribe(online => {
-      this.backendOnline = online;
-    });
   }
 
   ngOnDestroy(): void {
@@ -62,9 +55,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
     }
     if (this.userSubscription) {
       this.userSubscription.unsubscribe();
-    }
-    if (this.connectionSubscription) {
-      this.connectionSubscription.unsubscribe();
     }
   }
 
@@ -84,4 +74,5 @@ export class LayoutComponent implements OnInit, OnDestroy {
     return new Date().toLocaleTimeString();
   }
 }
+
 

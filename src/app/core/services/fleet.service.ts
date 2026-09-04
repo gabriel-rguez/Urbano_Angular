@@ -71,6 +71,7 @@ export class FleetService {
   private readonly API_URL = environment.apiUrl;
   private readonly AUTH_URL = environment.authUrl;
   private readonly FIRST_SEEN_KEY = 'fleet_first_seen';
+  private weeklyStats: WeeklyStats = { vehicles: 0, drivers: 0, routes: 0, trips: 0 };
 
   private readonly licenseToBackend: Record<string, string> = {
     'A-1': 'A1',
@@ -99,24 +100,36 @@ export class FleetService {
     private authService: AuthService
   ) {
     this.authService.currentUser$.pipe(
-      switchMap(() => this.refreshDataFromBackend().pipe(
-        catchError((err) => {
-          console.warn('No se pudo cargar la flota desde el backend:', err);
-          return of({ vehicles: this.vehiclesSubject.getValue(), drivers: this.driversSubject.getValue() });
-        })
-      ))
+      switchMap((user) => {
+        // Usuario autenticado → endpoint privado con datos completos.
+        // Sin sesión → endpoint público para el mapa público.
+        const load$ = user
+          ? this.refreshDataFromBackend()
+          : this.refreshPublicDataFromBackend().pipe(
+              tap(({ vehicles, drivers }) => {
+                this.vehiclesSubject.next(vehicles);
+                this.driversSubject.next(drivers);
+              })
+            );
+        return load$.pipe(
+          catchError((err) => {
+            console.warn('No se pudo cargar la flota desde el backend:', err);
+            return of({ vehicles: this.vehiclesSubject.getValue(), drivers: this.driversSubject.getValue() });
+          })
+        );
+      })
     ).subscribe();
   }
 
   refreshDataFromBackend(): Observable<{ vehicles: FleetVehicle[]; drivers: Driver[] }> {
     return forkJoin({
-      vehicles: this.http.get<any[]>(`${this.API_URL}/Vehiculo/v1/listartodo`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+      vehicles: this.http.get<any[]>(`${this.API_URL}/Vehiculo/v1/listartodo`).pipe(
         catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudieron cargar los vehículos')))
       ),
-      drivers: this.http.get<any[]>(`${this.API_URL}/Conductor/v1/listar`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+      drivers: this.http.get<any[]>(`${this.API_URL}/Conductor/v1/listar`).pipe(
         catchError(() => of([] as any[]))
       ),
-      assignments: this.http.get<AssignmentLite[]>(`${this.API_URL}/Asignacion/v1/listar`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(
+      assignments: this.http.get<AssignmentLite[]>(`${this.API_URL}/Asignacion/v1/listar`).pipe(
         catchError(() => of([] as AssignmentLite[]))
       )
     }).pipe(
@@ -142,6 +155,49 @@ export class FleetService {
     );
   }
 
+  refreshPublicDataFromBackend(): Observable<{ vehicles: FleetVehicle[]; drivers: Driver[] }> {
+    return this.http.get<any[]>(`${environment.gatewayUrl}/publico/Vehiculo/v1/listartodo`).pipe(
+      map((vehicles) => {
+        const mappedVehicles = (vehicles || []).map((v: any) => {
+          const mapped = this.mapVehicle(v);
+          const assignment = (v.asignaciones || []).find((a: AssignmentLite) => {
+            const ended = a.fechaFinal && new Date(a.fechaFinal) < new Date();
+            return !(ended && !a.indefinido);
+          });
+
+          if (assignment?.conductor && assignment?.dniConductor) {
+            mapped.conductorId = Number(assignment.dniConductor);
+          }
+
+          return mapped;
+        });
+
+        const drivers: Driver[] = (vehicles || [])
+          .flatMap((v: any) => (v.asignaciones || []).map((a: AssignmentLite) => {
+            const ended = a.fechaFinal && new Date(a.fechaFinal) < new Date();
+            if (ended && !a.indefinido) {
+              return null;
+            }
+
+            return {
+              id: Number(a.dniConductor),
+              ci: a.dniConductor || '',
+              nombreCompleto: a.conductor || '',
+              telefono: '',
+              email: '',
+              categorias: [],
+              vehiculoId: v.id
+            } as Driver;
+          }))
+          .filter((d): d is Driver => d !== null);
+
+        return {
+          vehicles: mappedVehicles,
+          drivers
+        };
+      })
+    );
+  }
   fetchVehicles(): Observable<FleetVehicle[]> {
     return this.refreshDataFromBackend().pipe(map(res => res.vehicles));
   }
@@ -240,13 +296,15 @@ export class FleetService {
   }
 
   addVehicle(vehicle: Omit<FleetVehicle, 'id' | 'conductorId'>): Observable<FleetVehicle> {
+    const imeiNormalizado = (vehicle.imeiDispositivoGps || '').trim().replace(/\s+/g, '');
     const payload = {
       matricula: (vehicle.matricula || '').trim().toUpperCase(),
       marca: vehicle.marca,
       modelo: vehicle.modelo,
       tipoBateria: vehicle.tipo,
       estado: 'ACTIVO',
-      capacidadPersonas: vehicle.capacidad || 4
+      capacidadPersonas: vehicle.capacidad || 4,
+      imeiDispositivoGps: imeiNormalizado || null
     };
 
     return this.http.post<any>(`${this.API_URL}/Vehiculo/v1/registrar`, payload).pipe(
@@ -265,12 +323,14 @@ export class FleetService {
   }
 
   updateVehicle(updatedVehicle: FleetVehicle): Observable<FleetVehicle> {
+    const imeiNormalizado = (updatedVehicle.imeiDispositivoGps || '').trim().replace(/\s+/g, '');
     const payload = {
       matricula: (updatedVehicle.matricula || '').trim().toUpperCase(),
       marca: updatedVehicle.marca,
       modelo: updatedVehicle.modelo,
       tipoBateria: updatedVehicle.tipo,
-      capacidadPersonas: updatedVehicle.capacidad || 4
+      capacidadPersonas: updatedVehicle.capacidad || 4,
+      imeiDispositivoGps: imeiNormalizado || null
     };
 
     return this.http.patch(`${this.API_URL}/Vehiculo/v1/actualizar/${updatedVehicle.id}`, payload).pipe(
@@ -284,8 +344,10 @@ export class FleetService {
   deleteVehicle(vehicleId: number): Observable<void> {
     const vehicle = this.vehiclesSubject.getValue().find(v => v.id === vehicleId);
     return this.http.delete(`${this.API_URL}/Vehiculo/v1/eliminar/${vehicleId}`).pipe(
-      switchMap(() => this.refreshDataFromBackend()),
       tap(() => {
+        const currentVehicles = this.vehiclesSubject.getValue();
+        this.vehiclesSubject.next(currentVehicles.filter(v => v.id !== vehicleId));
+
         if (vehicle) {
           this.auditService.logAction('ELIMINAR', 'VEHICULO', `Vehículo eliminado: ${vehicle.matricula}`);
         }
@@ -344,9 +406,6 @@ export class FleetService {
 
   getWeeklyStats(): WeeklyStats {
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const seen = this.readFirstSeen();
-    const countRecent = (bucket: Record<string, string>) =>
-      Object.values(bucket).filter(iso => new Date(iso).getTime() >= weekAgo).length;
 
     const trips = this.assignments.filter(a => {
       if (!a.fechaInicio) {
@@ -356,10 +415,42 @@ export class FleetService {
     }).length;
 
     return {
+      vehicles: this.weeklyStats.vehicles,
+      drivers: this.weeklyStats.drivers,
+      routes: this.weeklyStats.routes,
+      trips
+    };
+  }
+
+  loadWeeklyStatsFromBackend(): Observable<WeeklyStats> {
+    return this.http.get<any>(`${environment.gatewayUrl}/publico/estadisticas/semanales`).pipe(
+      map((data) => {
+        const stats: WeeklyStats = {
+          vehicles: data?.vehiculos ?? 0,
+          drivers: data?.conductores ?? 0,
+          routes: data?.rutas ?? 0,
+          trips: 0
+        };
+        this.weeklyStats = stats;
+        return stats;
+      }),
+      catchError(() => {
+        this.weeklyStats = this.localWeeklyStatsFallback();
+        return of(this.weeklyStats);
+      })
+    );
+  }
+
+  private localWeeklyStatsFallback(): WeeklyStats {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const seen = this.readFirstSeen();
+    const countRecent = (bucket: Record<string, string>) =>
+      Object.values(bucket).filter(iso => new Date(iso).getTime() >= weekAgo).length;
+    return {
       vehicles: countRecent(seen.vehicles),
       drivers: countRecent(seen.drivers),
       routes: 0,
-      trips
+      trips: 0
     };
   }
 
@@ -399,7 +490,20 @@ export class FleetService {
       );
     }
 
-    return this.refreshDataFromBackend();
+    return this.refreshDataFromBackend().pipe(
+      tap(() => {
+        const drivers = this.driversSubject.getValue();
+        const vehicles = this.vehiclesSubject.getValue();
+        const driver = drivers.find(d => d.id === driverId);
+        const vehicle = vehicles.find(v => v.id === vehicleId);
+        if (driver) {
+          this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Conductor ${driver.nombreCompleto} desasignado de su vehículo`);
+        } else if (vehicle) {
+          this.auditService.logAction('ACTUALIZAR', 'VEHICULO', `Vehículo ${vehicle.matricula} desasignado de su conductor`);
+        }
+      }),
+      catchError((err: HttpErrorResponse) => throwError(() => this.toUserError(err, 'No se pudo guardar la desasignación')))
+    );
   }
 
   private mapVehicle(v: any): FleetVehicle {

@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface AuditLog {
     id: string;
@@ -10,6 +14,15 @@ export interface AuditLog {
     user: string;
 }
 
+interface AuditLogDto {
+    id: string;
+    timestamp: string;
+    accion: string;
+    categoria: string;
+    detalles: string;
+    usuario: string;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -18,7 +31,10 @@ export class AuditService {
     private logsSubject = new BehaviorSubject<AuditLog[]>([]);
     readonly logs$ = this.logsSubject.asObservable();
 
-    constructor() {
+    constructor(
+        private http: HttpClient,
+        private authService: AuthService
+    ) {
         this.loadLogs();
     }
 
@@ -27,7 +43,6 @@ export class AuditService {
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                // Revive dates
                 const logs = parsed.map((log: any) => ({
                     ...log,
                     timestamp: new Date(log.timestamp)
@@ -38,6 +53,22 @@ export class AuditService {
                 this.logsSubject.next([]);
             }
         }
+
+        // Sincronizar con el historial persistido en la base de datos.
+        // Solo tiene sentido para usuarios autenticados (admin), no para la vista pública.
+        if (!this.authService.getCurrentUser()) {
+            return;
+        }
+        this.http.get<AuditLogDto[]>(`${environment.apiUrl}/Auditoria/v1/listar`).pipe(
+            catchError(() => of([] as AuditLogDto[]))
+        ).subscribe({
+            next: (logs) => {
+                const dbLogs = logs.map((l) => this.fromDto(l));
+                this.logsSubject.next(dbLogs);
+                this.saveLogs(dbLogs);
+            },
+            error: () => { /* se mantiene lo de localStorage */ }
+        });
     }
 
     logAction(
@@ -52,12 +83,39 @@ export class AuditService {
             action,
             category,
             details,
-            user: 'Admin' // Hardcoded for now per requirements
+            user: this.currentUserLabel()
         };
 
         const updatedLogs = [newLog, ...currentLogs];
         this.logsSubject.next(updatedLogs);
         this.saveLogs(updatedLogs);
+
+        // Persistir en la base de datos.
+        this.http.post(`${environment.apiUrl}/Auditoria/v1/registrar`, {
+            accion: action,
+            categoria: category,
+            detalles: details,
+            usuario: newLog.user
+        }).pipe(
+            catchError(() => of(null))
+        ).subscribe();
+    }
+
+    private currentUserLabel(): string {
+        const user = this.authService.getCurrentUser();
+        const email = (user as any)?.email || (user as any)?.username;
+        return email || 'Admin';
+    }
+
+    private fromDto(dto: AuditLogDto): AuditLog {
+        return {
+            id: dto.id ?? crypto.randomUUID(),
+            timestamp: new Date(dto.timestamp),
+            action: dto.accion as AuditLog['action'],
+            category: dto.categoria as AuditLog['category'],
+            details: dto.detalles,
+            user: dto.usuario || 'Admin'
+        };
     }
 
     private saveLogs(logs: AuditLog[]) {
@@ -67,6 +125,12 @@ export class AuditService {
     clearLogs() {
         this.logsSubject.next([]);
         localStorage.removeItem(this.STORAGE_KEY);
+        // Borrar también el historial persistido en la base de datos (si hay sesión).
+        if (this.authService.getCurrentUser()) {
+            this.http.delete(`${environment.apiUrl}/Auditoria/v1/limpiar`).pipe(
+                catchError(() => of(null))
+            ).subscribe();
+        }
     }
 
     getLogs(): Observable<AuditLog[]> {

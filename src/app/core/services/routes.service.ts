@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, firstValueFrom, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
-import { HttpClient, HttpErrorResponse, HttpContext } from '@angular/common/http';
-import { SKIP_AUTH } from '../interceptors/auth.interceptor';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { PlannedRoute, RouteStatus, Vehicle, ChargingStation } from '../models/routes.model';
 import { AuthService } from './auth.service';
@@ -11,6 +10,7 @@ import { AuthService } from './auth.service';
 })
 export class RoutesService {
   private readonly API_URL = environment.apiUrl;
+  private readonly PUBLIC_URL = environment.gatewayUrl + '/publico';
   private readonly SEEN_KEY = 'fleet_first_seen_routes';
 
   private routesSubject = new BehaviorSubject<PlannedRoute[]>([]);
@@ -85,8 +85,8 @@ export class RoutesService {
 
   fetchRoutesFromBackend(): Observable<PlannedRoute[]> {
     return forkJoin({
-      rutas: this.http.get<any[]>(`${this.API_URL}/Ruta/v1/listar/mapa`, { context: new HttpContext().set(SKIP_AUTH, true) }),
-      paradas: this.http.get<any[]>(`${this.API_URL}/Parada/v1/listar/mapa`, { context: new HttpContext().set(SKIP_AUTH, true) }).pipe(catchError(() => of([])))
+      rutas: this.http.get<any[]>(`${this.PUBLIC_URL}/Ruta/v1/listar/mapa`),
+      paradas: this.http.get<any[]>(`${this.PUBLIC_URL}/Parada/v1/listar/mapa`).pipe(catchError(() => of([])))
     }).pipe(
       map(({ rutas, paradas }) => (rutas || []).map((r: any) => this.mapRoute(r, paradas || []))),
       tap(mapped => {
